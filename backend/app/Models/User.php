@@ -2,31 +2,30 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Model implements AuthenticatableContract
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use Authenticatable, HasApiTokens;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $fillable = ['name', 'email', 'password', 'phone', 'role', 'status', 'remember_token'];
+
+    protected $hidden = ['password', 'remember_token'];
+
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    public function isAdmin(): bool     { return $this->role === 'admin'; }
+    public function isWarehouse(): bool { return $this->role === 'warehouse'; }
+    public function isCustomer(): bool  { return $this->role === 'customer'; }
+    public function isActive(): bool    { return $this->status === 'active'; }
+
+    public function addresses()      { return $this->hasMany(UserAddress::class); }
+    public function orders()         { return $this->hasMany(Order::class); }
+    public function carts()          { return $this->hasMany(Cart::class); }
 }
