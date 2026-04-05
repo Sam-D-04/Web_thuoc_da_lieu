@@ -66,19 +66,19 @@ const routes = [
 
   // ─── Admin ────────────────────────────────────────────
   {
-    path: '/',
+    path: '/admin',
     component: AdminLayout,
     meta: { requiresAdmin: true },
     children: [
-      { path: '', redirect: '/dashboard' },
-      { path: '/dashboard', name: 'Dashboard', component: Dashboard, meta: { title: 'Tổng quan' } },
-      { path: '/products', name: 'Products', component: Products, meta: { title: 'Sản phẩm' } },
-      { path: '/batches', name: 'Batches', component: Batches, meta: { title: 'Lô thuốc' } },
-      { path: '/orders', name: 'Orders', component: Orders, meta: { title: 'Đơn hàng' } },
-      { path: '/customers', name: 'Customers', component: Customers, meta: { title: 'Khách hàng' } },
-      { path: '/alerts', name: 'Alerts', component: Alerts, meta: { title: 'Cảnh báo' } },
-      { path: '/reports', name: 'Reports', component: Reports, meta: { title: 'Báo cáo' } },
-      { path: '/settings', name: 'Settings', component: Settings, meta: { title: 'Cài đặt' } },
+      { path: '', redirect: '/admin/dashboard' },
+      { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { title: 'Tổng quan' } },
+      { path: 'products', name: 'Products', component: Products, meta: { title: 'Sản phẩm' } },
+      { path: 'batches', name: 'Batches', component: Batches, meta: { title: 'Lô thuốc' } },
+      { path: 'orders', name: 'Orders', component: Orders, meta: { title: 'Đơn hàng' } },
+      { path: 'customers', name: 'Customers', component: Customers, meta: { title: 'Khách hàng' } },
+      { path: 'alerts', name: 'Alerts', component: Alerts, meta: { title: 'Cảnh báo' } },
+      { path: 'reports', name: 'Reports', component: Reports, meta: { title: 'Báo cáo' } },
+      { path: 'settings', name: 'Settings', component: Settings, meta: { title: 'Cài đặt' } },
     ]
   },
 

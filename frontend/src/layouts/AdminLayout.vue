@@ -3,13 +3,16 @@
     <!-- Sidebar -->
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
-        <div class="logo">
-          <div class="logo-icon" v-html="getNavIcon('medical')"></div>
+        <router-link to="/admin/dashboard" class="logo">
+          <!-- Dermacity Monogram Logo -->
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0" style="width: 32px; height: 32px;">
+            <span class="text-white font-black text-sm tracking-tighter leading-none" style="color: white; font-weight: 900; font-size: 14px;">Dc</span>
+          </div>
           <div class="logo-copy">
-            <p class="logo-title">Admin</p>
+            <p class="logo-title" style="color: #005B96;">Derma<span style="color: #0ea5e9;">city</span></p>
             <p class="logo-subtitle">Quản trị hệ thống</p>
           </div>
-        </div>
+        </router-link>
         <button @click="toggleSidebar" class="toggle-btn">
           <span class="toggle-icon" v-html="getNavIcon('menu')"></span>
         </button>
@@ -42,15 +45,21 @@
       <!-- Topbar -->
       <header class="topbar">
         <div class="topbar-left">
-          <div class="topbar-brand">
-            <div class="brand-mark" aria-hidden="true">
-              <span class="brand-mark-icon" v-html="getNavIcon('medical')"></span>
-              <span class="brand-mark-dot"></span>
-            </div>
-            <div class="brand-copy">
-              <span class="brand-name">Dermacity</span>
-              <span class="brand-tagline">Trao giải pháp đúng, gửi trọn niềm tin</span>
-            </div>
+          <div class="topbar-brand" style="background: none; border: none; box-shadow: none; padding: 0;">
+            <router-link to="/admin/dashboard" class="flex items-center gap-2.5 flex-shrink-0" style="text-decoration: none;">
+              <!-- Dermacity Monogram Logo -->
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: linear-gradient(to bottom right, #005B96, #06b6d4);">
+                <span class="text-white font-black text-base tracking-tighter leading-none" style="color: white; font-weight: 900; font-size: 16px;">Dc</span>
+              </div>
+              <div class="leading-none" style="display: flex; flex-direction: column;">
+                <div class="text-[17px] font-black tracking-tight" style="font-size: 17px; font-weight: 900; line-height: 1;">
+                  <span style="color: #111827;">Derma</span><span style="color: #005B96;">city</span>
+                </div>
+                <div class="text-[10px] text-gray-400 tracking-widest uppercase font-medium" style="font-size: 10px; color: #9ca3af; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; margin-top: 2px;">
+                  Quản Trị Viên
+                </div>
+              </div>
+            </router-link>
           </div>
         </div>
 
@@ -101,14 +110,14 @@ const sidebarCollapsed = ref(false)
 const profileDropdownOpen = ref(false)
 
 const navItems = [
-  { path: '/dashboard', label: 'Tổng quan', icon: 'dashboard' },
-  { path: '/products', label: 'Sản phẩm', icon: 'products' },
-  { path: '/batches', label: 'Lô thuốc', icon: 'batches' },
-  { path: '/orders', label: 'Đơn hàng', icon: 'orders' },
-  { path: '/customers', label: 'Khách hàng', icon: 'customers' },
-  { path: '/alerts', label: 'Cảnh báo', icon: 'alerts' },
-  { path: '/reports', label: 'Báo cáo', icon: 'reports' },
-  { path: '/settings', label: 'Cài đặt', icon: 'settings' }
+  { path: '/admin/dashboard', label: 'Tổng quan', icon: 'dashboard' },
+  { path: '/admin/products', label: 'Sản phẩm', icon: 'products' },
+  { path: '/admin/batches', label: 'Lô thuốc', icon: 'batches' },
+  { path: '/admin/orders', label: 'Đơn hàng', icon: 'orders' },
+  { path: '/admin/customers', label: 'Khách hàng', icon: 'customers' },
+  { path: '/admin/alerts', label: 'Cảnh báo', icon: 'alerts' },
+  { path: '/admin/reports', label: 'Báo cáo', icon: 'reports' },
+  { path: '/admin/settings', label: 'Cài đặt', icon: 'settings' }
 ]
 
 const unreadCount = computed(() => alertStore.unreadAlerts)
@@ -123,7 +132,7 @@ const toggleProfileDropdown = () => {
 
 const goToSecuritySettings = () => {
   profileDropdownOpen.value = false
-  router.push({ path: '/settings', query: { tab: 'security' } })
+  router.push({ path: '/admin/settings', query: { tab: 'security' } })
 }
 
 const isActiveRoute = (path) => {
@@ -290,7 +299,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   font-size: 20px;
   line-height: 1;
   font-weight: 900;
-  color: #426ea8;
+  color: #005B96;
   letter-spacing: -0.6px;
 }
 
@@ -330,7 +339,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
 .toggle-btn {
   background: rgba(255, 255, 255, 0.45);
   border: 1px solid rgba(82, 121, 184, 0.18);
-  color: #426ea8;
+  color: #005B96;
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -351,7 +360,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #426ea8;
+  color: #005B96;
 }
 
 .toggle-icon :deep(svg) {
@@ -503,7 +512,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
 .brand-mark-icon {
   width: 22px;
   height: 22px;
-  color: #426ea8;
+  color: #005B96;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -528,7 +537,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
 .brand-name {
   font-size: 20px;
   font-weight: 900;
-  color: #426ea8;
+  color: #005B96;
   letter-spacing: -0.8px;
   line-height: 1;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
@@ -640,7 +649,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   cursor: pointer;
   border-radius: 10px;
   transition: all 0.3s ease;
-  color: #426ea8;
+  color: #005B96;
 }
 
 .profile-btn:hover {
@@ -657,7 +666,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
 .admin-name {
   font-size: 12px;
   font-weight: 600;
-  color: #426ea8;
+  color: #005B96;
 }
 
 .dropdown-arrow {
@@ -702,7 +711,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #426ea8;
+  color: #005B96;
 }
 
 .dropdown-icon :deep(svg) {
@@ -716,7 +725,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
 
 .dropdown-item:hover:not(.danger) {
   background: #f4f8ff;
-  color: #426ea8;
+  color: #005B96;
 }
 
 .dropdown-item.danger {
