@@ -1,0 +1,11 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

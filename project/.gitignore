@@ -1,0 +1,29 @@
+# OS & Generic
+*.log
+.DS_Store
+Thumbs.db
+
+# PHP / Laravel cache
+.phpunit.result.cache
+.phpactor.json
+.phpunit.cache
+
+# IDE & Editor
+/.idea
+/.vscode
+/.fleet
+/.zed
+/.nova
+
+# Vendor & dependencies
+/vendor
+/node_modules
+
+# Laravel specific
+
+
+bootstrap/cache/*.php
+
+# Homestead
+Homestead.json
+Homestead.yaml
