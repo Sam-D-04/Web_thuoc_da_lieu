@@ -48,8 +48,8 @@
           <tr>
             <th class="col-batch">Mã lô</th>
             <th class="col-product">Sản phẩm</th>
-            <th class="col-qty">Số lượng</th>
-            <th class="col-remain">Tồn còn lại</th>
+            <th class="col-qty">Số lượng hiện tại</th>
+            <th class="col-remain">Số lượng nhập</th>
             <th class="col-expiry">Ngày hết hạn</th>
             <th class="col-days">Còn lại</th>
             <th class="col-status">Trạng thái</th>
@@ -73,10 +73,10 @@
               </div>
             </td>
             <td class="col-qty">
-              <span class="qty-badge">{{ batch.quantity }}</span>
+              <span class="qty-badge remaining">{{ batch.remaining_quantity }}</span>
             </td>
             <td class="col-remain">
-              <span class="qty-badge remaining">{{ batch.remaining_quantity }}</span>
+              <span class="qty-badge">{{ batch.quantity }}</span>
             </td>
             <td class="col-expiry">{{ formatDate(batch.expiry_date) }}</td>
             <td class="col-days">
@@ -462,7 +462,6 @@ const closeModal = () => {
   resetForm()
 }
 
-// Giả lập gọi API để bám đúng yêu cầu async/await
 const buildPayload = () => {
   const productId = Number(formState.product_id)
   const expiryDate = dayjs(formState.expiry_date).format('YYYY-MM-DD')
@@ -501,17 +500,12 @@ const handleEdit = async () => {
   }
 
   const expiryDate = dayjs(formState.expiry_date).format('YYYY-MM-DD')
-  const daysToExpiry = batchStore.getDaysToExpiry(expiryDate)
-
   const payload = {
-    ...existing,
-    expiryDate,
     expiry_date: expiryDate,
-    remaining_quantity: Number(formState.remaining_quantity),
-    status: resolveBatchStatus(daysToExpiry)
+    remaining_quantity: Number(formState.remaining_quantity)
   }
 
-  const updated = batchStore.updateBatch(editingBatchId.value, payload)
+  const updated = await batchStore.updateBatchAPI(editingBatchId.value, payload)
   message.success(`Đã cập nhật lô ${updated?.batch_code || existing.batch_code} thành công`)
   closeModal()
 }

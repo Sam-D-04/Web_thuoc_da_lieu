@@ -2,13 +2,51 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000
 })
 
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin
+  } catch (error) {
+    return 'http://localhost:8000'
+  }
+})()
+
+const resolveImageUrl = (value) => {
+  if (!value) return null
+  const raw = String(value).trim()
+  if (!raw) return null
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw)
+      if (parsed.hostname === 'localhost' && !parsed.port && parsed.pathname.startsWith('/storage/')) {
+        return `${API_ORIGIN}${parsed.pathname}${parsed.search || ''}`
+      }
+    } catch (error) {
+      return raw
+    }
+    return raw
+  }
+
+  const normalized = raw.replace(/^\/+/, '')
+  if (normalized.startsWith('storage/')) {
+    return `${API_ORIGIN}/${normalized}`
+  }
+  if (normalized.startsWith('products/')) {
+    return `${API_ORIGIN}/storage/${normalized}`
+  }
+  return `${API_ORIGIN}/${normalized}`
+}
+
 export const useProductStore = defineStore('products', () => {
   const products = ref([])
+  const categories = ref([])
   const hoveredId = ref(null)
   const loading = ref(false)
 
@@ -19,8 +57,10 @@ export const useProductStore = defineStore('products', () => {
 
   const filteredProducts = (category = '', query = '') => {
     return activeProducts.value.filter(p => {
-      const matchCat = category ? p.category === category : true
-      const matchQ = query ? (p.name.toLowerCase().includes(query.toLowerCase()) || p.brand.toLowerCase().includes(query.toLowerCase())) : true
+      const matchCat = category ? p.category_slug === category : true
+      const matchQ = query
+        ? (p.name.toLowerCase().includes(query.toLowerCase()) || String(p.brand || '').toLowerCase().includes(query.toLowerCase()))
+        : true
       return matchCat && matchQ
     })
   }
@@ -37,14 +77,15 @@ export const useProductStore = defineStore('products', () => {
         id: item.id,
         name: item.name,
         slug: item.slug,
-        category: item.category?.slug || '',
+        category_slug: item.category?.slug || '',
+        category_name: item.category?.name || '',
         brand: item.brand?.name || '',
         price_listed: Number(item.price_listed || 0),
         dosage_form: item.dosage_form || '',
         volume: item.volume || '',
-        image: item.image || item.image_url || null,
+        image: resolveImageUrl(item.image) || resolveImageUrl(item.image_url),
         description: item.description || '',
-        stock_quantity: Number(item.stock_quantity || 0),
+        stock_quantity: Number(item.batch_remaining_quantity ?? item.stock_quantity ?? 0),
         is_active: Boolean(item.is_active),
         sold_count: Number(item.sold_count || 0)
       }))
@@ -53,8 +94,20 @@ export const useProductStore = defineStore('products', () => {
     }
   }
 
+  const fetchCategories = async () => {
+    const response = await apiClient.get('/categories')
+    const rows = Array.isArray(response.data) ? response.data : (Array.isArray(response.data?.data) ? response.data.data : [])
+    categories.value = rows.map((item) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug
+    }))
+    return categories.value
+  }
+
   return {
     products,
+    categories,
     hoveredId,
     loading,
     activeProducts,
@@ -62,6 +115,7 @@ export const useProductStore = defineStore('products', () => {
     getProductById,
     filteredProducts,
     formatPrice,
-    fetchProducts
+    fetchProducts,
+    fetchCategories
   }
 })

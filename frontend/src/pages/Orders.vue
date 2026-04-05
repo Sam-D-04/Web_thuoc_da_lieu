@@ -726,15 +726,11 @@ const submitDetailOrder = async () => {
     savingDetail.value = true
     detailError.value = ''
 
-    if (detailForm.order_status === 'cancelled') {
-      orderStore.cancelOrder(currentOrder.id, detailForm.note)
-    } else {
-      orderStore.updateOrderStatus(currentOrder.id, detailForm.order_status)
-      orderStore.updateOrder(currentOrder.id, {
-        note: detailForm.note,
-        order_status: detailForm.order_status
-      })
-    }
+    await orderStore.updateOrderStatusAPI(currentOrder.id, detailForm.order_status)
+    orderStore.updateOrder(currentOrder.id, {
+      note: detailForm.note,
+      order_status: detailForm.order_status
+    })
 
     message.success('Đã cập nhật đơn hàng')
     closeDetailModal()
@@ -753,8 +749,12 @@ const confirmCancel = (order) => {
     okText: 'Hủy đơn',
     okType: 'danger',
     cancelText: 'Không',
-    onOk() {
-      orderStore.cancelOrder(order.id, 'Hủy từ giao diện quản lý.')
+    async onOk() {
+      await orderStore.updateOrderStatusAPI(order.id, 'cancelled')
+      orderStore.updateOrder(order.id, {
+        note: 'Hủy từ giao diện quản lý.',
+        order_status: 'cancelled'
+      })
       message.success(`Đã hủy đơn ${order.id}`)
       if (selectedOrderId.value === order.id) {
         detailVisible.value = false
@@ -766,17 +766,11 @@ const confirmCancel = (order) => {
 const confirmDelete = (order) => {
   Modal.confirm({
     title: 'Xác nhận xóa đơn',
-    content: `Bạn có chắc muốn xóa đơn ${order.id} không?`,
-    okText: 'Xóa',
-    okType: 'danger',
+    content: `API hiện chưa hỗ trợ xóa đơn ${order.id}. Bạn chỉ có thể hủy đơn.`,
+    okText: 'Đã hiểu',
+    okType: 'default',
     cancelText: 'Không',
-    onOk() {
-      orderStore.deleteOrder(order.id)
-      message.success(`Đã xóa đơn ${order.id}`)
-      if (selectedOrderId.value === order.id) {
-        detailVisible.value = false
-      }
-    }
+    onOk() {}
   })
 }
 

@@ -28,6 +28,13 @@ export const useAuthStore = defineStore('auth', () => {
   const isCustomer = computed(() => user.value?.role === 'customer')
   const userName = computed(() => user.value?.name || '')
 
+  const clearAuthState = () => {
+    user.value = null
+    token.value = null
+    localStorage.removeItem('auth_user')
+    localStorage.removeItem('auth_token')
+  }
+
   const login = async (email, password) => {
     try {
       const response = await apiClient.post('/login', { email, password })
@@ -79,11 +86,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
-    user.value = null
-    token.value = null
-    localStorage.removeItem('auth_user')
-    localStorage.removeItem('auth_token')
+  const logout = async () => {
+    const currentToken = token.value
+
+    // Clear local session first so the UI logs out immediately.
+    clearAuthState()
+
+    if (!currentToken) {
+      return { success: true }
+    }
+
+    try {
+      await apiClient.post('/logout', {}, {
+        headers: {
+          Authorization: `Bearer ${currentToken}`
+        }
+      })
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        message: error?.response?.data?.message || 'Đăng xuất cục bộ thành công nhưng không đồng bộ được phiên máy chủ.'
+      }
+    }
   }
 
   return { user, token, isLoggedIn, isAdmin, isWarehouse, isCustomer, userName, login, register, logout }

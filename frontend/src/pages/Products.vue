@@ -11,16 +11,20 @@
 
     <!-- Search and Filter -->
     <div class="filters">
-      <input type="search" class="search-input" placeholder="Tìm kiếm sản phẩm...">
-      <select class="filter-select">
-        <option>Tất cả danh mục</option>
-        <option>Mụn</option>
-        <option>Viêm da</option>
-        <option>Chống lão hóa</option>
-        <option>Chống nắng</option>
-        <option>Tẩy trang</option>
+      <input
+        v-model.trim="searchKeyword"
+        type="search"
+        class="search-input"
+        placeholder="Tìm kiếm sản phẩm..."
+        @keyup.enter="applyFilters"
+      >
+      <select v-model="selectedCategoryId" class="filter-select">
+        <option value="">Tất cả danh mục</option>
+        <option v-for="category in categories" :key="category.id" :value="String(category.id)">
+          {{ category.name }}
+        </option>
       </select>
-      <button class="filter-btn"><span class="filter-icon" v-html="getFilterIcon()"></span>Lọc</button>
+      <button class="filter-btn" @click="applyFilters"><span class="filter-icon" v-html="getFilterIcon()"></span>Lọc</button>
     </div>
 
     <div v-if="showProductForm" class="product-form-overlay" @click.self="handleFormCancelled">
@@ -42,6 +46,7 @@
             <th class="col-id">ID</th>
             <th class="col-name">Sản phẩm</th>
             <th class="col-category">Danh mục</th>
+            <th class="col-brand">Thương hiệu</th>
             <th class="col-dosage">Dạng bào chế</th>
             <th class="col-volume">Dung tích</th>
             <th class="col-price">Giá niêm yết</th>
@@ -62,6 +67,7 @@
               </div>
             </td>
             <td class="col-category">{{ resolveCategory(product) }}</td>
+            <td class="col-brand">{{ resolveBrand(product) }}</td>
             <td class="col-dosage">{{ resolveDosage(product) }}</td>
             <td class="col-volume">{{ resolveVolume(product) }}</td>
             <td class="col-price">{{ formatCurrency(product.price) }}</td>
@@ -72,7 +78,13 @@
             </td>
             <td class="col-actions">
               <button class="action-btn edit-btn" title="Chỉnh sửa" v-html="getEditIcon()" @click="startEdit(product)"></button>
-              <button class="action-btn delete-btn" title="Xóa" v-html="getDeleteIcon()"></button>
+              <button
+                class="action-btn delete-btn"
+                title="Xóa"
+                v-html="getDeleteIcon()"
+                :disabled="deletingProductId === product.id"
+                @click="handleDeleteProduct(product)"
+              ></button>
             </td>
           </tr>
         </tbody>
@@ -99,16 +111,23 @@ import ProductFormModal from '@/components/ProductFormModal.vue'
 const productStore = useProductStore()
 
 const products = computed(() => productStore.products)
+const categories = ref([])
+const searchKeyword = ref('')
+const selectedCategoryId = ref('')
 const editingProduct = ref(null)
 const showProductForm = ref(false)
+const deletingProductId = ref(null)
 
-const categoryNameMap = {
-  '1': 'Mụn',
-  '2': 'Phục hồi da',
-  '3': 'Chống nắng',
-  '4': 'Viêm da',
-  '5': 'Chống lão hóa',
-  '6': 'Tẩy trang'
+const fetchProducts = async () => {
+  await productStore.fetchProducts({
+    per_page: 50,
+    search: searchKeyword.value || undefined,
+    category_id: selectedCategoryId.value || undefined
+  })
+}
+
+const applyFilters = async () => {
+  await fetchProducts()
 }
 
 const formatCurrency = (value) => {
@@ -143,6 +162,7 @@ const resolveSlug = (product) => {
 }
 
 const resolveCategory = (product) => product.category_name || product.category || 'N/A'
+const resolveBrand = (product) => product.brand_name || product.brand?.name || 'N/A'
 const resolveDosage = (product) => product.dosage_form || product.type || 'Chưa cập nhật'
 const resolveVolume = (product) => product.volume || 'Chưa cập nhật'
 
@@ -167,6 +187,28 @@ const startEdit = (product) => {
   showProductForm.value = true
 }
 
+const handleDeleteProduct = async (product) => {
+  if (!product?.id || deletingProductId.value === product.id) {
+    return
+  }
+
+  const accepted = window.confirm(`Bạn có chắc muốn xóa sản phẩm "${product.name}"?`)
+  if (!accepted) {
+    return
+  }
+
+  deletingProductId.value = product.id
+  try {
+    await warehouseApi.deleteProduct(product.id)
+    await fetchProducts()
+  } catch (error) {
+    console.error(error)
+    window.alert('Không thể xóa sản phẩm. Vui lòng thử lại.')
+  } finally {
+    deletingProductId.value = null
+  }
+}
+
 const handleFormSaved = async (saved) => {
   if (!saved) {
     editingProduct.value = null
@@ -189,14 +231,32 @@ const handleFormSaved = async (saved) => {
     if (saved.id) {
       await warehouseApi.updateProduct(saved.id, payload)
     } else {
-      await warehouseApi.createProduct(payload)
+      const formData = new FormData()
+      formData.append('category_id', String(payload.category_id))
+      if (payload.brand_id) {
+        formData.append('brand_id', String(payload.brand_id))
+      }
+      formData.append('name', payload.name)
+      formData.append('description', payload.description)
+      formData.append('price_listed', String(payload.price_listed))
+      formData.append('dosage_form', payload.dosage_form)
+      formData.append('volume', payload.volume)
+      formData.append('is_active', payload.is_active ? '1' : '0')
+
+      if (saved.image_file) {
+        formData.append('image', saved.image_file)
+      }
+
+      await warehouseApi.createProduct(formData)
     }
 
-    await productStore.fetchProducts({ per_page: 50 })
+    await fetchProducts()
     editingProduct.value = null
     showProductForm.value = false
+    window.alert(saved.id ? 'Cập nhật sản phẩm thành công.' : 'Thêm sản phẩm mới thành công.')
   } catch (error) {
     console.error(error)
+    window.alert(error?.response?.data?.message || 'Không thể lưu sản phẩm. Vui lòng kiểm tra dữ liệu và thử lại.')
   }
 }
 
@@ -230,7 +290,11 @@ const getFilterIcon = () => `
 `
 
 onMounted(async () => {
-  await productStore.fetchProducts({ per_page: 50 })
+  const [categoryList] = await Promise.all([
+    warehouseApi.getCategories(),
+    fetchProducts()
+  ])
+  categories.value = categoryList
 })
 </script>
 
@@ -425,11 +489,15 @@ onMounted(async () => {
 }
 
 .col-name {
-  width: 34%;
+  width: 30%;
 }
 
 .col-category {
-  width: 14%;
+  width: 12%;
+}
+
+.col-brand {
+  width: 12%;
 }
 
 .col-dosage {
@@ -636,6 +704,10 @@ onMounted(async () => {
   }
 
   .col-category {
+    display: none;
+  }
+
+  .col-brand {
     display: none;
   }
 

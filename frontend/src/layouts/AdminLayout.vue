@@ -5,8 +5,11 @@
       <div class="sidebar-header">
         <router-link to="/admin/dashboard" class="logo">
           <!-- Dermacity Monogram Logo -->
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0" style="width: 32px; height: 32px;">
-            <span class="text-white font-black text-sm tracking-tighter leading-none" style="color: white; font-weight: 900; font-size: 14px;">Dc</span>
+          <div
+            class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0"
+            style="width: 32px; height: 32px;">
+            <span class="text-white font-black text-sm tracking-tighter leading-none"
+              style="color: white; font-weight: 900; font-size: 14px;">Dc</span>
           </div>
           <div class="logo-copy">
             <p class="logo-title" style="color: #005B96;">Derma<span style="color: #0ea5e9;">city</span></p>
@@ -19,23 +22,18 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link 
-          v-for="item in navItems" 
-          :key="item.path"
-          :to="item.path"
-          :title="sidebarCollapsed ? item.label : ''"
-          class="nav-item"
-          :class="{ active: isActiveRoute(item.path) }"
-        >
+        <router-link v-for="item in navItems" :key="item.path" :to="item.path"
+          :title="sidebarCollapsed ? item.label : ''" class="nav-item" :class="{ active: isActiveRoute(item.path) }">
           <span class="nav-icon" v-html="getNavIcon(item.icon)"></span>
           <span v-if="!sidebarCollapsed" class="nav-label">{{ item.label }}</span>
         </router-link>
       </nav>
 
       <div class="sidebar-footer">
-        <button class="logout-btn" :title="sidebarCollapsed ? 'Đăng xuất' : ''">
+        <button class="logout-btn" :title="sidebarCollapsed ? 'Đăng xuất' : ''" @click="handleLogout"
+          :disabled="isLoggingOut">
           <span class="nav-icon" v-html="getNavIcon('logout')"></span>
-          <span v-if="!sidebarCollapsed" class="nav-label">Đăng xuất</span>
+          <span v-if="!sidebarCollapsed" class="nav-label">{{ isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất' }}</span>
         </button>
       </div>
     </aside>
@@ -46,16 +44,22 @@
       <header class="topbar">
         <div class="topbar-left">
           <div class="topbar-brand" style="background: none; border: none; box-shadow: none; padding: 0;">
-            <router-link to="/admin/dashboard" class="flex items-center gap-2.5 flex-shrink-0" style="text-decoration: none;">
+            <router-link to="/admin/dashboard" class="flex items-center gap-2.5 flex-shrink-0"
+              style="text-decoration: none;">
               <!-- Dermacity Monogram Logo -->
-              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: linear-gradient(to bottom right, #005B96, #06b6d4);">
-                <span class="text-white font-black text-base tracking-tighter leading-none" style="color: white; font-weight: 900; font-size: 16px;">Dc</span>
+              <div
+                class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200 flex-shrink-0"
+                style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: linear-gradient(to bottom right, #005B96, #06b6d4);">
+                <span class="text-white font-black text-base tracking-tighter leading-none"
+                  style="color: white; font-weight: 900; font-size: 16px;">Dc</span>
               </div>
               <div class="leading-none" style="display: flex; flex-direction: column;">
-                <div class="text-[17px] font-black tracking-tight" style="font-size: 17px; font-weight: 900; line-height: 1;">
+                <div class="text-[17px] font-black tracking-tight"
+                  style="font-size: 17px; font-weight: 900; line-height: 1;">
                   <span style="color: #111827;">Derma</span><span style="color: #005B96;">city</span>
                 </div>
-                <div class="text-[10px] text-gray-400 tracking-widest uppercase font-medium" style="font-size: 10px; color: #9ca3af; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; margin-top: 2px;">
+                <div class="text-[10px] text-gray-400 tracking-widest uppercase font-medium"
+                  style="font-size: 10px; color: #9ca3af; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; margin-top: 2px;">
                   Quản Trị Viên
                 </div>
               </div>
@@ -83,7 +87,8 @@
             </button>
 
             <div v-if="profileDropdownOpen" class="dropdown-menu">
-              <button @click="goToSecuritySettings" class="dropdown-item"><span class="dropdown-icon" v-html="getNavIcon('lock')"></span>Đổi mật khẩu</button>
+              <button @click="goToSecuritySettings" class="dropdown-item"><span class="dropdown-icon"
+                  v-html="getNavIcon('lock')"></span>Đổi mật khẩu</button>
             </div>
           </div>
         </div>
@@ -105,14 +110,17 @@
 import { ref, computed, onErrorCaptured } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAlertStore } from '@/stores/alerts'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const alertStore = useAlertStore()
+const authStore = useAuthStore()
 
 const sidebarCollapsed = ref(false)
 const profileDropdownOpen = ref(false)
 const pageRenderError = ref('')
+const isLoggingOut = ref(false)
 
 onErrorCaptured((error) => {
   pageRenderError.value = error instanceof Error ? error.message : String(error)
@@ -121,6 +129,8 @@ onErrorCaptured((error) => {
 
 const navItems = [
   { path: '/admin/dashboard', label: 'Tổng quan', icon: 'dashboard' },
+  { path: '/admin/categories', label: 'Danh mục', icon: 'categories' },
+  { path: '/admin/brands', label: 'Thương hiệu', icon: 'brands' },
   { path: '/admin/products', label: 'Sản phẩm', icon: 'products' },
   { path: '/admin/batches', label: 'Lô thuốc', icon: 'batches' },
   { path: '/admin/orders', label: 'Đơn hàng', icon: 'orders' },
@@ -143,6 +153,22 @@ const toggleProfileDropdown = () => {
 const goToSecuritySettings = () => {
   profileDropdownOpen.value = false
   router.push({ path: '/admin/settings', query: { tab: 'security' } })
+}
+
+const handleLogout = async () => {
+  if (isLoggingOut.value) {
+    return
+  }
+
+  isLoggingOut.value = true
+  profileDropdownOpen.value = false
+
+  try {
+    await authStore.logout()
+  } finally {
+    isLoggingOut.value = false
+    router.push('/login')
+  }
 }
 
 const isActiveRoute = (path) => {
@@ -189,6 +215,20 @@ const navIconMap = {
       <path d="M4 8.5 12 4l8 4.5-8 4.5-8-4.5Z" />
       <path d="M4 8.5v7l8 4.5 8-4.5v-7" />
       <path d="M12 13v7" />
+    </svg>
+  `,
+  categories: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 5.5h6v6H4z" />
+      <path d="M14 5.5h6v6h-6z" />
+      <path d="M4 14.5h6v6H4z" />
+      <path d="M14 14.5h6v6h-6z" />
+    </svg>
+  `,
+  brands: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 12.5 12 5l7 7.5-7 6.5-7-6.5Z" />
+      <path d="M12 5v14" opacity="0.55" />
     </svg>
   `,
   batches: `
@@ -826,11 +866,11 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   .sidebar {
     width: 240px;
   }
-  
+
   .sidebar.collapsed {
     width: 60px;
   }
-  
+
   .topbar {
     padding: 0 16px;
   }
@@ -856,7 +896,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
     width: 260px;
     max-width: 32vw;
   }
-  
+
   .page-content {
     padding: 16px;
   }
@@ -873,7 +913,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
-  
+
   .sidebar.active {
     transform: translateX(0);
   }
@@ -881,7 +921,7 @@ const getNavIcon = (key) => navIconMap[key] || navIconMap.dashboard
   .sidebar .logo {
     display: none;
   }
-  
+
   .topbar-left {
     max-width: none;
   }

@@ -10,12 +10,9 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
-  if (token && !token.startsWith('mock-token-')) {
+  if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
-  } else if (token && token.startsWith('mock-token-')) {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('auth_user')
   }
   return config
 })
@@ -106,6 +103,46 @@ export const warehouseApi = {
     }
   },
 
+  async getCategories() {
+    const response = await apiClient.get('/categories')
+    return toList(response.data)
+  },
+
+  async createCategory(payload) {
+    const response = await apiClient.post('/categories', payload)
+    return response.data
+  },
+
+  async updateCategory(id, payload) {
+    const response = await apiClient.put(`/categories/${id}`, payload)
+    return response.data
+  },
+
+  async deleteCategory(id) {
+    const response = await apiClient.delete(`/categories/${id}`)
+    return response.data
+  },
+
+  async getBrands() {
+    const response = await apiClient.get('/brands')
+    return toList(response.data)
+  },
+
+  async createBrand(payload) {
+    const response = await apiClient.post('/brands', payload)
+    return response.data
+  },
+
+  async updateBrand(id, payload) {
+    const response = await apiClient.put(`/brands/${id}`, payload)
+    return response.data
+  },
+
+  async deleteBrand(id) {
+    const response = await apiClient.delete(`/brands/${id}`)
+    return response.data
+  },
+
   async getProducts(params) {
     const response = await apiClient.get('/products', { params })
     return toPaginated(response.data, Number(params?.page || 1), Number(params?.pageSize || 10))
@@ -143,8 +180,14 @@ export const warehouseApi = {
     return response.data
   },
 
-  async updateBatch() {
-    throw new Error('API hiện chưa hỗ trợ cập nhật lô hàng.')
+  async updateBatch(id, payload) {
+    const mappedPayload = {
+      expiry_date: payload.expiry_date || payload.expiryDate,
+      remaining_quantity: payload.remaining_quantity
+    }
+
+    const response = await apiClient.put(`/batches/${id}`, mappedPayload)
+    return response.data
   },
 
   async deleteBatch() {
@@ -152,8 +195,22 @@ export const warehouseApi = {
   },
 
   async getInventoryTransactions(params) {
+    const mappedParams = {
+      page: Number(params?.page || 1),
+      per_page: Number(params?.pageSize || 10),
+      search: params?.search || undefined,
+      type: params?.type && params.type !== 'all' ? params.type : undefined,
+      from_date: params?.fromDate || undefined,
+      to_date: params?.toDate || undefined
+    }
+
+    const response = await apiClient.get('/warehouse/inventory-transactions', { params: mappedParams })
+    return toPaginated(response.data, Number(mappedParams.page), Number(mappedParams.per_page))
+  },
+
+  async getInventory(params) {
     const response = await apiClient.get('/warehouse/inventory', { params })
-    return toPaginated(response.data, Number(params?.page || 1), Number(params?.pageSize || 10))
+    return toPaginated(response.data, Number(params?.page || 1), Number(params?.pageSize || 20))
   },
 
   async getAlerts(params) {

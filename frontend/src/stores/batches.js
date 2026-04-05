@@ -123,6 +123,11 @@ export const useBatchStore = defineStore('batch', () => {
     return null
   }
 
+  const updateBatchAPI = async (id, payload) => {
+    const updated = await warehouseApi.updateBatch(id, payload)
+    return updateBatch(id, normalizeBatch(updated))
+  }
+
   const restoreBatchQuantity = (batchId, quantity) => {
     const index = batches.value.findIndex((batch) => batch.id === batchId)
     if (index === -1) return null
@@ -157,6 +162,7 @@ export const useBatchStore = defineStore('batch', () => {
     totalBatches,
     fetchBatches,
     createBatchAPI,
+    updateBatchAPI,
     addBatch,
     updateBatch,
     restoreBatchQuantity,

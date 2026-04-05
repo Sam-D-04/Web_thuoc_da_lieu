@@ -5,9 +5,6 @@
         <h1>Quản lý khách hàng</h1>
         <p class="breadcrumb">Nhà thuốc Da liễu / Khách hàng</p>
       </div>
-      <a-space>
-        <a-button type="primary" @click="openCreateModal">+ Thêm khách hàng</a-button>
-      </a-space>
     </div>
 
     <div class="stats-grid">
@@ -100,7 +97,6 @@
           <template v-else-if="column.key === 'actions'">
             <div class="action-group">
               <a-button size="small" @click="openDetailModal(record)">Xem</a-button>
-              <a-button size="small" type="primary" ghost @click="openEditModal(record)">Sửa</a-button>
             </div>
           </template>
         </template>
@@ -404,32 +400,7 @@ const closeDetailModal = () => {
 }
 
 const submitCustomerForm = async () => {
-  try {
-    await customerFormRef.value?.validate()
-    savingCustomer.value = true
-
-    const payload = {
-      name: customerForm.name.trim(),
-      email: customerForm.email.trim(),
-      phone: customerForm.phone.trim(),
-      status: customerForm.status === 'active' ? 'Đang hoạt động' : 'Ngưng hoạt động'
-    }
-
-    if (createMode.value === 'create') {
-      customerStore.addCustomer(payload)
-      message.success('Đã thêm khách hàng')
-    } else {
-      customerStore.updateCustomer(customerForm.id, payload)
-      message.success('Đã cập nhật khách hàng')
-    }
-
-    closeCustomerModal()
-  } catch (error) {
-    if (error?.errorFields) return
-    message.error(error?.message || 'Không thể lưu khách hàng')
-  } finally {
-    savingCustomer.value = false
-  }
+  message.warning('Chức năng thêm/sửa khách hàng chưa được backend hỗ trợ. Dữ liệu khách hàng hiện ở chế độ chỉ đọc.')
 }
 
 watch(createVisible, (visible) => {

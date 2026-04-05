@@ -13,12 +13,9 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
-  if (token && !token.startsWith('mock-token-')) {
+  if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
-  } else if (token && token.startsWith('mock-token-')) {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('auth_user')
   }
   return config
 })
@@ -131,6 +128,16 @@ export const useOrderStore = defineStore('order', () => {
     })
   }
 
+  const updateOrderStatusAPI = async (id, status) => {
+    const response = await apiClient.put(`/orders/${id}/status`, {
+      order_status: status
+    })
+
+    const normalized = normalizeOrder(response.data || {})
+    updateOrder(id, normalized)
+    return normalized
+  }
+
   const cancelOrder = (id, note = '') => {
     return updateOrder(id, {
       order_status: 'cancelled',
@@ -176,6 +183,7 @@ export const useOrderStore = defineStore('order', () => {
     fetchAdminOrders,
     updateOrder,
     updateOrderStatus,
+    updateOrderStatusAPI,
     cancelOrder,
     deleteOrder,
     getAvailableBatchesForProduct,

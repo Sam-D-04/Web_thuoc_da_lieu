@@ -7,8 +7,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\UserAddress;
 use App\Models\Product;
-use App\Models\Batch;
 use App\Models\Payment;
+use App\Models\InventoryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +65,16 @@ class OrderController extends Controller
                 $product = Product::lockForUpdate()->findOrFail($item['product_id']);
                 $needed  = $item['quantity'];
 
-                if ($product->stock_quantity < $needed) {
+                $batches = $product->batches()
+                    ->where('remaining_quantity', '>', 0)
+                    ->whereDate('expiry_date', '>=', now()->toDateString())
+                    ->orderBy('expiry_date', 'asc')
+                    ->lockForUpdate()
+                    ->get(['id', 'remaining_quantity']);
+
+                $availableQty = (int) $batches->sum('remaining_quantity');
+
+                if ($availableQty < $needed) {
                     throw new \Exception("Sản phẩm \"{$product->name}\" không đủ hàng");
                 }
 
@@ -75,6 +84,7 @@ class OrderController extends Controller
                     'product_id' => $product->id,
                     'quantity'   => $needed,
                     'price'      => $product->price_listed,
+                    'batches'    => $batches,
                 ];
             }
 
@@ -105,14 +115,45 @@ class OrderController extends Controller
                 'note'           => $validated['note'] ?? null,
             ]);
 
-            // 3. FEFO
+            // 3. FEFO theo batch còn hạn
             foreach ($itemsSummary as $sum) {
-                DB::statement('CALL sp_allocate_order_fefo(?, ?, ?, ?)', [
-                    $order->id,
-                    $sum['product_id'],
-                    $sum['quantity'],
-                    $sum['price']
-                ]);
+                $remaining = (int) $sum['quantity'];
+
+                foreach ($sum['batches'] as $batch) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    $take = min((int) $batch->remaining_quantity, $remaining);
+                    if ($take <= 0) {
+                        continue;
+                    }
+
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'product_id' => $sum['product_id'],
+                        'batch_id'   => $batch->id,
+                        'quantity'   => $take,
+                        'price'      => $sum['price'],
+                        'total'      => $take * $sum['price'],
+                    ]);
+
+                    InventoryTransaction::create([
+                        'product_id'   => $sum['product_id'],
+                        'batch_id'     => $batch->id,
+                        'type'         => 'export',
+                        'quantity'     => $take,
+                        'reference_id' => $order->id,
+                        'created_by'   => $user->id,
+                        'note'         => "Xuất kho cho đơn hàng {$order->order_code}",
+                    ]);
+
+                    $remaining -= $take;
+                }
+
+                if ($remaining > 0) {
+                    throw new \Exception('Không đủ số lượng hàng hợp lệ trong kho!');
+                }
             }
 
             // 4. Payment (chỉ 1 lần)

@@ -4,6 +4,8 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import StorefrontLayout from '@/layouts/StorefrontLayout.vue'
 import Dashboard from '@/pages/Dashboard.vue'
 import Products from '@/pages/Products.vue'
+import Category from '@/pages/Category.vue'
+import Brand from '@/pages/Brand.vue'
 import Batches from '@/pages/Batches.vue'
 import Orders from '@/pages/Orders.vue'
 import Customers from '@/pages/Customers.vue'
@@ -66,6 +68,8 @@ const routes = [
       { path: '', redirect: '/admin/dashboard' },
       { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { title: 'Tổng quan' } },
       { path: 'products', name: 'Products', component: Products, meta: { title: 'Sản phẩm' } },
+      { path: 'categories', name: 'Categories', component: Category, meta: { title: 'Danh mục' } },
+      { path: 'brands', name: 'Brands', component: Brand, meta: { title: 'Thương hiệu' } },
       { path: 'batches', name: 'Batches', component: Batches, meta: { title: 'Lô thuốc' } },
       { path: 'orders', name: 'Orders', component: Orders, meta: { title: 'Đơn hàng' } },
       { path: 'customers', name: 'Customers', component: Customers, meta: { title: 'Khách hàng' } },
@@ -81,6 +85,8 @@ const routes = [
   // ─── Legacy Admin Paths ───────────────────────────────
   { path: '/dashboard', redirect: '/admin/dashboard' },
   { path: '/products', redirect: '/admin/products' },
+  { path: '/categories', redirect: '/admin/categories' },
+  { path: '/brands', redirect: '/admin/brands' },
   { path: '/batches', redirect: '/admin/batches' },
   { path: '/orders', redirect: '/admin/orders' },
   { path: '/customers', redirect: '/admin/customers' },

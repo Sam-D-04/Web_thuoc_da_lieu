@@ -2,22 +2,56 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     Accept: 'application/json'
   }
 })
 
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin
+  } catch (error) {
+    return 'http://localhost:8000'
+  }
+})()
+
+const resolveImageUrl = (value) => {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (!raw) return ''
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw)
+      if (parsed.hostname === 'localhost' && !parsed.port && parsed.pathname.startsWith('/storage/')) {
+        return `${API_ORIGIN}${parsed.pathname}${parsed.search || ''}`
+      }
+    } catch (error) {
+      return raw
+    }
+    return raw
+  }
+
+  const normalized = raw.replace(/^\/+/, '')
+  if (normalized.startsWith('storage/')) {
+    return `${API_ORIGIN}/${normalized}`
+  }
+  if (normalized.startsWith('products/')) {
+    return `${API_ORIGIN}/storage/${normalized}`
+  }
+  return `${API_ORIGIN}/${normalized}`
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
-  if (token && !token.startsWith('mock-token-')) {
+  if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
-  } else if (token && token.startsWith('mock-token-')) {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('auth_user')
   }
   return config
 })
@@ -34,7 +68,8 @@ const normalizeProduct = (product) => {
     stock_quantity: Number(product.stock_quantity ?? product.stock ?? 0),
     stock_warning: Number(product.stock_warning ?? 10),
     category_name: product.category?.name || product.category_name || product.category || 'N/A',
-    image_url: product.image_url || product.image || '',
+    brand_name: product.brand?.name || product.brand_name || product.brand || 'N/A',
+    image_url: resolveImageUrl(product.image) || resolveImageUrl(product.image_url),
     is_active: isActive,
     status: isActive ? 'Hoạt động' : 'Ngừng'
   }
