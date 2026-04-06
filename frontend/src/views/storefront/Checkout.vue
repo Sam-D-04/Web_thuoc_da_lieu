@@ -247,9 +247,6 @@ const handleSubmit = async () => {
     const response = await apiClient.post('/orders', payload)
     const data = response.data || {}
 
-    orderId.value = data.order_code || String(data.order_id || '')
-    orderSuccess.value = true
-
     cartStore.clearCart()
     await productStore.fetchProducts()
 
@@ -258,6 +255,19 @@ const handleSubmit = async () => {
       return
     }
 
+    if (form.value.payment_method === 'bank_transfer') {
+      router.push({
+        path: '/payment-instruction',
+        query: {
+          code:   data.order_code || String(data.order_id || ''),
+          amount: data.final_amount
+        }
+      })
+      return
+    }
+
+    orderId.value = data.order_code || String(data.order_id || '')
+    orderSuccess.value = true
     setTimeout(() => router.push('/account/orders'), 1800)
   } catch (err) {
     error.value = err?.response?.data?.message || err?.message || 'Đặt hàng thất bại. Vui lòng thử lại.'

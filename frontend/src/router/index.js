@@ -17,6 +17,7 @@ import Home from '@/views/storefront/Home.vue'
 import ProductDetail from '@/views/storefront/ProductDetail.vue'
 import Checkout from '@/views/storefront/Checkout.vue'
 import Account from '@/views/storefront/Account.vue'
+import PaymentInstruction from '@/views/storefront/PaymentInstruction.vue'
 
 const routes = [
   // ─── Auth ─────────────────────────────────────────────
@@ -55,6 +56,12 @@ const routes = [
         name: 'Account',
         component: Account,
         meta: { title: 'Tài khoản của tôi', requiresAuth: true }
+      },
+      {
+        path: '/payment-instruction',
+        name: 'PaymentInstruction',
+        component: PaymentInstruction,
+        meta: { title: 'Hướng dẫn thanh toán', requiresAuth: true }
       }
     ]
   },
