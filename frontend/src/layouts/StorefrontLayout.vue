@@ -46,13 +46,16 @@
         </router-link>
 
         <!-- Search Bar -->
-        <div class="flex-1 relative">
+        <div class="flex-1 relative" ref="searchWrapRef">
           <input
             v-model="searchQuery"
             @keyup.enter="handleSearch"
+            @focus="showDropdown = true"
+            @input="onSearchInput"
             type="text"
             placeholder="Tìm kiếm sản phẩm, thương hiệu, thành phần..."
             class="w-full pl-4 pr-12 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors bg-gray-50 focus:bg-white"
+            autocomplete="off"
           />
           <button
             @click="handleSearch"
@@ -62,6 +65,80 @@
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
           </button>
+
+          <!-- Live search dropdown -->
+          <Transition name="search-drop">
+            <div
+              v-if="showDropdown && searchQuery.trim().length >= 1"
+              class="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-xl shadow-blue-100/40 z-50 overflow-hidden"
+            >
+              <!-- Searching indicator -->
+              <div v-if="searchLoading" class="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+                <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                Đang tìm...
+              </div>
+
+              <!-- Results -->
+              <template v-else-if="searchResults.length">
+                <div class="px-3 pt-2.5 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Kết quả ({{ searchResults.length }})
+                </div>
+                <a
+                  v-for="product in searchResults"
+                  :key="product.id"
+                  href="#"
+                  @click.prevent="selectProduct(product)"
+                  class="flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors group"
+                >
+                  <!-- Thumbnail -->
+                  <div class="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-blue-50 border border-gray-100 flex items-center justify-center">
+                    <img
+                      v-if="product.image"
+                      :src="product.image"
+                      :alt="product.name"
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <svg v-else class="w-5 h-5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                    </svg>
+                  </div>
+
+                  <!-- Info -->
+                  <div class="flex-1 min-w-0">
+                    <p
+                      class="text-sm font-medium text-gray-800 group-hover:text-primary transition-colors truncate"
+                      v-html="highlightMatch(product.name, searchQuery)"
+                    ></p>
+                    <p class="text-xs text-gray-400 truncate">{{ product.brand || product.category_name || '' }}</p>
+                  </div>
+
+                  <!-- Price -->
+                  <div class="text-right flex-shrink-0">
+                    <p class="text-sm font-bold text-primary">{{ productStore.formatPrice(product.price_listed) }}</p>
+                    <p v-if="product.stock_quantity === 0" class="text-[10px] text-red-400 font-medium">Hết hàng</p>
+                    <p v-else class="text-[10px] text-green-500 font-medium">Còn hàng</p>
+                  </div>
+                </a>
+
+                <!-- Xem tất cả -->
+                <button
+                  @click="handleSearch"
+                  class="w-full text-center py-2.5 text-sm text-primary font-semibold hover:bg-blue-50 transition-colors border-t border-gray-100"
+                >
+                  Xem tất cả kết quả cho "{{ searchQuery }}" →
+                </button>
+              </template>
+
+              <!-- No results -->
+              <div v-else class="px-4 py-5 text-center">
+                <p class="text-sm text-gray-400">Không tìm thấy sản phẩm phù hợp</p>
+                <p class="text-xs text-gray-300 mt-1">Thử từ khoá khác nhé</p>
+              </div>
+            </div>
+          </Transition>
         </div>
 
         <!-- Right Actions -->
@@ -174,19 +251,85 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useProductStore } from '@/stores/shopProducts'
 import CartDrawer from '@/components/storefront/CartDrawer.vue'
 
-const router = useRouter()
-const authStore = useAuthStore()
-const cartStore = useCartStore()
+const router       = useRouter()
+const authStore    = useAuthStore()
+const cartStore    = useCartStore()
 const productStore = useProductStore()
-const searchQuery = ref('')
 
+// ── Search State ──────────────────────────────────────────────────────────────
+const searchQuery   = ref('')
+const searchResults = ref([])
+const searchLoading = ref(false)
+const showDropdown  = ref(false)
+const searchWrapRef = ref(null)
+let   debounceTimer = null
+
+// ── Debounced live search ─────────────────────────────────────────────────────
+const onSearchInput = () => {
+  clearTimeout(debounceTimer)
+  const q = searchQuery.value.trim()
+
+  if (q.length < 1) {
+    searchResults.value = []
+    return
+  }
+
+  searchLoading.value = true
+  debounceTimer = setTimeout(() => {
+    // Tìm trong dữ liệu đã load sẵn (không cần thêm request)
+    const lower = q.toLowerCase()
+    searchResults.value = productStore.activeProducts
+      .filter(p =>
+        p.name.toLowerCase().includes(lower) ||
+        String(p.brand  || '').toLowerCase().includes(lower) ||
+        String(p.dosage_form || '').toLowerCase().includes(lower)
+      )
+      .slice(0, 6)   // Giới hạn 6 kết quả
+    searchLoading.value = false
+  }, 250)
+}
+
+// ── Highlight từ trùng khớp ───────────────────────────────────────────────────
+const highlightMatch = (text, query) => {
+  if (!query) return text
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return text.replace(
+    new RegExp(`(${escaped})`, 'gi'),
+    '<mark class="bg-yellow-100 text-yellow-800 rounded px-0.5">$1</mark>'
+  )
+}
+
+// ── Điều hướng khi chọn sản phẩm ─────────────────────────────────────────────
+const selectProduct = (product) => {
+  showDropdown.value = false
+  searchQuery.value  = ''
+  searchResults.value = []
+  router.push(`/shop/product/${product.slug}`)
+}
+
+// ── Enter / tìm tất cả ───────────────────────────────────────────────────────
+const handleSearch = () => {
+  if (searchQuery.value.trim()) {
+    showDropdown.value = false
+    router.push({ path: '/shop', query: { q: searchQuery.value.trim() } })
+  }
+}
+
+// ── Đóng dropdown khi click ngoài ────────────────────────────────────────────
+const handleOutsideClick = (e) => {
+  if (searchWrapRef.value && !searchWrapRef.value.contains(e.target)) {
+    showDropdown.value = false
+  }
+}
+
+// ── Category chips ────────────────────────────────────────────────────────────
 const chipThemes = [
   'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
   'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100',
@@ -206,15 +349,33 @@ const categories = computed(() => {
   }))
 })
 
-const handleSearch = () => {
-  if (searchQuery.value.trim()) {
-    router.push({ path: '/shop', query: { q: searchQuery.value.trim() } })
-  }
-}
-
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  document.addEventListener('click', handleOutsideClick)
   if (!productStore.categories.length) {
     await productStore.fetchCategories()
   }
+  // Load products trước để live search dùng được
+  if (!productStore.products.length) {
+    productStore.fetchProducts()
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
+  clearTimeout(debounceTimer)
 })
 </script>
+
+<style scoped>
+/* Search dropdown slide + fade animation */
+.search-drop-enter-active,
+.search-drop-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.search-drop-enter-from,
+.search-drop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+}
+</style>

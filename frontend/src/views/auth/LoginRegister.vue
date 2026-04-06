@@ -25,214 +25,299 @@
 
       <!-- Card -->
       <div class="bg-white rounded-2xl shadow-xl shadow-blue-100/50 p-8 border border-gray-100">
-        <!-- Tab Switcher -->
-        <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
-          <button
-            @click="activeTab = 'login'"
-            :class="[
-              'flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200',
-              activeTab === 'login'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            ]"
-          >
-            Đăng nhập
-          </button>
-          <button
-            @click="activeTab = 'register'"
-            :class="[
-              'flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200',
-              activeTab === 'register'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            ]"
-          >
-            Đăng ký
-          </button>
-        </div>
 
-        <!-- LOGIN FORM -->
-        <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-4">
-          <!-- Email -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="2" y="4" width="20" height="16" rx="2"/>
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-                </svg>
-              </div>
-              <input
-                v-model="loginForm.email"
-                type="email"
-                placeholder="your@email.com"
-                class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white"
-                required
-              />
+        <!-- ── OTP VERIFICATION STEP ── -->
+        <div v-if="showOtpStep">
+          <!-- Header -->
+          <div class="text-center mb-6">
+            <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
             </div>
+            <h2 class="text-lg font-bold text-gray-800">Xác thực email</h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Mã 6 số đã được gửi đến<br/>
+              <span class="font-semibold text-primary">{{ pendingEmailDisplay }}</span>
+            </p>
           </div>
 
-          <!-- Password -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </div>
-              <input
-                v-model="loginForm.password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="••••••••"
-                class="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white"
-                required
-              />
-              <button
-                type="button"
-                @click="showPassword = !showPassword"
-                class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
-              >
-                <svg v-if="!showPassword" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                </svg>
-                <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-              </button>
-            </div>
+          <!-- OTP inputs -->
+          <div class="flex gap-2 justify-center mb-2">
+            <input
+              v-for="(_, i) in otpDigits"
+              :key="i"
+              :ref="el => otpInputs[i] = el"
+              v-model="otpDigits[i]"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              @input="onOtpInput(i)"
+              @keydown="onOtpKeydown($event, i)"
+              @paste.prevent="onOtpPaste($event)"
+              class="w-11 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:border-primary transition-colors bg-gray-50 focus:bg-white"
+              :class="otpDigits[i] ? 'border-primary' : 'border-gray-200'"
+            />
           </div>
 
-          <!-- Remember & Forgot -->
-          <div class="flex items-center justify-between text-sm">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" v-model="loginForm.remember" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
-              <span class="text-gray-600">Ghi nhớ đăng nhập</span>
-            </label>
-            <button type="button" class="text-primary hover:text-blue-700 font-medium">Quên mật khẩu?</button>
+          <!-- Countdown / Resend -->
+          <div class="text-center text-sm mb-5">
+            <span v-if="resendCountdown > 0" class="text-gray-400">
+              Gửi lại sau <span class="font-semibold text-gray-600">{{ resendCountdown }}s</span>
+            </span>
+            <button
+              v-else
+              type="button"
+              @click="handleResend"
+              :disabled="isLoading"
+              class="text-primary hover:text-blue-700 font-medium disabled:opacity-50"
+            >
+              Gửi lại mã
+            </button>
           </div>
 
           <!-- Error -->
-          <div v-if="loginError" class="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+          <div v-if="otpError" class="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-4">
             <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            {{ loginError }}
+            {{ otpError }}
           </div>
 
-          <!-- Submit Button -->
+          <!-- Verify button -->
           <button
-            type="submit"
-            :disabled="isLoading"
+            type="button"
+            @click="handleVerify"
+            :disabled="isLoading || otpCode.length < 6"
             class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg v-if="isLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
             </svg>
-            <span>{{ isLoading ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
+            <span>{{ isLoading ? 'Đang xác thực...' : 'Xác nhận' }}</span>
           </button>
 
-        </form>
-
-        <!-- REGISTER FORM -->
-        <form v-if="activeTab === 'register'" @submit.prevent="handleRegister" class="space-y-4">
-          <!-- Name -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Họ và tên</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <input v-model="registerForm.name" type="text" placeholder="Nguyễn Văn A" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
-            </div>
-          </div>
-
-          <!-- Email -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="2" y="4" width="20" height="16" rx="2"/>
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-                </svg>
-              </div>
-              <input v-model="registerForm.email" type="email" placeholder="your@email.com" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
-            </div>
-          </div>
-
-          <!-- Phone -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Số điện thoại</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.49 12 19.79 19.79 0 0 1 1.39 3.39 2 2 0 0 1 3.37 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 5.72 5.72l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-                </svg>
-              </div>
-              <input v-model="registerForm.phone" type="tel" placeholder="0909 123 456" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
-            </div>
-          </div>
-
-          <!-- Password -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </div>
-              <input v-model="registerForm.password" :type="showPassword ? 'text' : 'password'" placeholder="Tối thiểu 8 ký tự" class="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
-              <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600">
-                <svg v-if="!showPassword" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Confirm Password -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Xác nhận mật khẩu</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </div>
-              <input v-model="registerForm.confirmPassword" :type="showPassword ? 'text' : 'password'" placeholder="Nhập lại mật khẩu" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
-            </div>
-          </div>
-
-          <!-- Terms -->
-          <label class="flex items-start gap-2 cursor-pointer">
-            <input type="checkbox" v-model="registerForm.agreeTerms" class="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary" required />
-            <span class="text-sm text-gray-600">Tôi đồng ý với <button type="button" class="text-primary hover:underline">Điều khoản sử dụng</button> và <button type="button" class="text-primary hover:underline">Chính sách bảo mật</button></span>
-          </label>
-
-          <!-- Error -->
-          <div v-if="registerError" class="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
-            <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            {{ registerError }}
-          </div>
-
+          <!-- Back -->
           <button
-            type="submit"
-            :disabled="isLoading"
-            class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            type="button"
+            @click="showOtpStep = false; activeTab = 'register'"
+            class="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 py-1"
           >
-            <svg v-if="isLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <span>{{ isLoading ? 'Đang đăng ký...' : 'Tạo tài khoản' }}</span>
+            ← Quay lại đăng ký
           </button>
-        </form>
+        </div>
+
+        <!-- ── LOGIN / REGISTER TABS ── -->
+        <template v-else>
+          <!-- Tab Switcher -->
+          <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+            <button
+              @click="activeTab = 'login'"
+              :class="[
+                'flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200',
+                activeTab === 'login'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              ]"
+            >
+              Đăng nhập
+            </button>
+            <button
+              @click="activeTab = 'register'"
+              :class="[
+                'flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200',
+                activeTab === 'register'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              ]"
+            >
+              Đăng ký
+            </button>
+          </div>
+
+          <!-- LOGIN FORM -->
+          <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-4">
+            <!-- Email -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                  </svg>
+                </div>
+                <input
+                  v-model="loginForm.email"
+                  type="email"
+                  placeholder="your@email.com"
+                  class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <input
+                  v-model="loginForm.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="••••••••"
+                  class="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white"
+                  required
+                />
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg v-if="!showPassword" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Remember & Forgot -->
+            <div class="flex items-center justify-between text-sm">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" v-model="loginForm.remember" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <span class="text-gray-600">Ghi nhớ đăng nhập</span>
+              </label>
+              <button type="button" class="text-primary hover:text-blue-700 font-medium">Quên mật khẩu?</button>
+            </div>
+
+            <!-- Error -->
+            <div v-if="loginError" class="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+              <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ loginError }}
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              type="submit"
+              :disabled="isLoading"
+              class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg v-if="isLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              <span>{{ isLoading ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
+            </button>
+          </form>
+
+          <!-- REGISTER FORM -->
+          <form v-if="activeTab === 'register'" @submit.prevent="handleRegister" class="space-y-4">
+            <!-- Name -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Họ và tên</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <input v-model="registerForm.name" type="text" placeholder="Nguyễn Văn A" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                  </svg>
+                </div>
+                <input v-model="registerForm.email" type="email" placeholder="your@email.com" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
+              </div>
+            </div>
+
+            <!-- Phone -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Số điện thoại</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.49 12 19.79 19.79 0 0 1 1.39 3.39 2 2 0 0 1 3.37 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.37a16 16 0 0 0 5.72 5.72l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </div>
+                <input v-model="registerForm.phone" type="tel" placeholder="0909 123 456" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <input v-model="registerForm.password" :type="showPassword ? 'text' : 'password'" placeholder="Tối thiểu 8 ký tự" class="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
+                <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600">
+                  <svg v-if="!showPassword" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Xác nhận mật khẩu</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <input v-model="registerForm.confirmPassword" :type="showPassword ? 'text' : 'password'" placeholder="Nhập lại mật khẩu" class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-gray-50 focus:bg-white" required />
+              </div>
+            </div>
+
+            <!-- Terms -->
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" v-model="registerForm.agreeTerms" class="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary" required />
+              <span class="text-sm text-gray-600">Tôi đồng ý với <button type="button" class="text-primary hover:underline">Điều khoản sử dụng</button> và <button type="button" class="text-primary hover:underline">Chính sách bảo mật</button></span>
+            </label>
+
+            <!-- Error -->
+            <div v-if="registerError" class="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+              <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {{ registerError }}
+            </div>
+
+            <button
+              type="submit"
+              :disabled="isLoading"
+              class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg v-if="isLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span>{{ isLoading ? 'Đang đăng ký...' : 'Tạo tài khoản' }}</span>
+            </button>
+          </form>
+        </template>
       </div>
 
       <!-- Back to shop -->
@@ -249,7 +334,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -262,8 +347,54 @@ const isLoading = ref(false)
 const loginError = ref('')
 const registerError = ref('')
 
+// OTP step
+const showOtpStep = ref(false)
+const otpDigits = reactive(['', '', '', '', '', ''])
+const otpInputs = ref([])
+const otpError = ref('')
+const resendCountdown = ref(0)
+let countdownTimer = null
+
+const pendingEmailDisplay = computed(() => authStore.pendingEmail || '')
+const otpCode = computed(() => otpDigits.join(''))
+
 const loginForm = reactive({ email: '', password: '', remember: false })
 const registerForm = reactive({ name: '', email: '', phone: '', password: '', confirmPassword: '', agreeTerms: false })
+
+// ── OTP helpers ──────────────────────────────────────────────────────────────
+
+const startCountdown = () => {
+  resendCountdown.value = 60
+  clearInterval(countdownTimer)
+  countdownTimer = setInterval(() => {
+    resendCountdown.value--
+    if (resendCountdown.value <= 0) clearInterval(countdownTimer)
+  }, 1000)
+}
+
+const onOtpInput = (index) => {
+  const val = otpDigits[index].replace(/\D/g, '')
+  otpDigits[index] = val ? val[0] : ''
+  if (otpDigits[index] && index < 5) {
+    otpInputs.value[index + 1]?.focus()
+  }
+}
+
+const onOtpKeydown = (e, index) => {
+  if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+    otpInputs.value[index - 1]?.focus()
+  }
+}
+
+const onOtpPaste = (e) => {
+  const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+  text.split('').forEach((ch, i) => { otpDigits[i] = ch })
+  otpInputs.value[Math.min(text.length, 5)]?.focus()
+}
+
+onUnmounted(() => clearInterval(countdownTimer))
+
+// ── Handlers ──────────────────────────────────────────────────────────────────
 
 const handleLogin = async () => {
   loginError.value = ''
@@ -298,13 +429,52 @@ const handleRegister = async () => {
   isLoading.value = true
   try {
     const result = await authStore.register(registerForm)
-    if (result.success) {
-      router.push('/shop')
+    if (result.success && result.requiresVerification) {
+      showOtpStep.value = true
+      otpDigits.fill('')
+      otpError.value = ''
+      startCountdown()
     } else {
       registerError.value = result.message || 'Đăng ký thất bại'
     }
   } catch {
     registerError.value = 'Đã có lỗi xảy ra. Vui lòng thử lại.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleVerify = async () => {
+  otpError.value = ''
+  if (otpCode.value.length < 6) return
+  isLoading.value = true
+  try {
+    const result = await authStore.verifyEmail(authStore.pendingEmail, otpCode.value)
+    if (result.success) {
+      router.push('/shop')
+    } else {
+      otpError.value = result.message || 'Mã không đúng'
+    }
+  } catch {
+    otpError.value = 'Đã có lỗi xảy ra. Vui lòng thử lại.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleResend = async () => {
+  isLoading.value = true
+  try {
+    const result = await authStore.resendCode(authStore.pendingEmail)
+    if (result.success) {
+      otpError.value = ''
+      otpDigits.fill('')
+      startCountdown()
+    } else {
+      otpError.value = result.message || 'Gửi lại thất bại'
+    }
+  } catch {
+    otpError.value = 'Đã có lỗi xảy ra. Vui lòng thử lại.'
   } finally {
     isLoading.value = false
   }

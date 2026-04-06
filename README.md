@@ -5,7 +5,29 @@
 
 ---
 
-## 🚀 Hướng dẫn chạy dự án
+## ⚡ Chạy nhanh (1 lệnh)
+
+Mở **CMD / Terminal** tại thư mục gốc `WEB_THUOC` và chạy:
+
+```bash
+npm run dev
+```
+
+Lệnh này sẽ **tự động chạy song song** cả Backend lẫn Frontend trong cùng 1 terminal, với màu sắc phân biệt rõ ràng:
+
+```
+[BACKEND]  Listening on http://localhost:8000
+[FRONTEND] VITE ready at http://localhost:5173
+```
+
+> ⚠️ **Lần đầu chạy**: Cần cài dependencies trước — xem hướng dẫn bên dưới.
+
+Hoặc dùng **Double-click** vào file `start-dev.bat` (mỗi server mở 1 cửa sổ riêng).
+
+---
+
+## 🚀 Hướng dẫn chạy thủ công
+
 
 ### Yêu cầu môi trường
 

@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const user = ref(persistedUser)
   const token = ref(localStorage.getItem('auth_token') || null)
+  const pendingEmail = ref(null)
 
   const isLoggedIn = computed(() => !!user.value && !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
@@ -66,23 +67,42 @@ export const useAuthStore = defineStore('auth', () => {
         password: formData.password,
         password_confirmation: formData.confirmPassword
       })
+      pendingEmail.value = response.data?.email || formData.email
+      return { success: true, requiresVerification: true, email: pendingEmail.value }
+    } catch (error) {
+      return { success: false, message: error?.response?.data?.message || 'Đăng ký thất bại' }
+    }
+  }
 
+  const verifyEmail = async (email, code) => {
+    try {
+      const response = await apiClient.post('/verify-email', { email, code })
       const nextUser = response.data?.user || null
       const nextToken = response.data?.token || null
 
       if (!nextUser || !nextToken) {
-        return { success: false, message: 'Dữ liệu đăng ký không hợp lệ.' }
+        return { success: false, message: 'Dữ liệu không hợp lệ.' }
       }
 
       user.value = nextUser
       token.value = nextToken
+      pendingEmail.value = null
 
       localStorage.setItem('auth_user', JSON.stringify(nextUser))
       localStorage.setItem('auth_token', nextToken)
 
       return { success: true, user: nextUser }
     } catch (error) {
-      return { success: false, message: error?.response?.data?.message || 'Đăng ký thất bại' }
+      return { success: false, message: error?.response?.data?.message || 'Xác thực thất bại' }
+    }
+  }
+
+  const resendCode = async (email) => {
+    try {
+      await apiClient.post('/resend-verification', { email })
+      return { success: true }
+    } catch (error) {
+      return { success: false, message: error?.response?.data?.message || 'Gửi lại thất bại' }
     }
   }
 
@@ -111,5 +131,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, token, isLoggedIn, isAdmin, isWarehouse, isCustomer, userName, login, register, logout }
+  return { user, token, pendingEmail, isLoggedIn, isAdmin, isWarehouse, isCustomer, userName, login, register, verifyEmail, resendCode, logout }
 })

@@ -11,8 +11,10 @@ use App\Http\Controllers\Api\StatsController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Public routes ──────────────────────────────────────────────────────────
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/register',             [AuthController::class, 'register']);
+Route::post('/verify-email',         [AuthController::class, 'verifyEmail']);
+Route::post('/resend-verification',  [AuthController::class, 'resendVerificationCode']);
+Route::post('/login',                [AuthController::class, 'login']);
 
 // Products & Categories (public read)
 Route::get('/products',           [ProductController::class, 'index']);
