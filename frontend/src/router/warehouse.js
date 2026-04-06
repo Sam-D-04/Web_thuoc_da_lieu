@@ -3,6 +3,7 @@ import WarehouseProducts from '@/views/warehouse/Products.vue'
 import WarehouseBatches from '@/views/warehouse/Batches.vue'
 import WarehouseInventory from '@/views/warehouse/Inventory.vue'
 import WarehouseAlerts from '@/views/warehouse/Alerts.vue'
+import WarehouseRevenue from '@/views/warehouse/Revenue.vue'
 
 const warehouseRoutes = [
   {
@@ -38,6 +39,12 @@ const warehouseRoutes = [
     name: 'WarehouseAlerts',
     component: WarehouseAlerts,
     meta: { title: 'Kho - Canh bao' }
+  },
+  {
+    path: '/warehouse/revenue',
+    name: 'WarehouseRevenue',
+    component: WarehouseRevenue,
+    meta: { title: 'Kho - Doanh thu' }
   }
 ]
 

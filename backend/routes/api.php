@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BatchController;
 use App\Http\Controllers\Api\WarehouseController;
+use App\Http\Controllers\Api\StatsController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Public routes ──────────────────────────────────────────────────────────
@@ -55,6 +56,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Orders management
         Route::get('/admin/orders',             [OrderController::class, 'adminIndex']);
         Route::put('/orders/{id}/status',       [OrderController::class, 'updateStatus']);
+
+        // Stats & Revenue
+        Route::get('/admin/stats/revenue',      [StatsController::class, 'revenue']);
+        Route::get('/admin/stats/overview',     [StatsController::class, 'overview']);
     });
 
     // ─── Admin + Warehouse ───────────────────────────────────────────────────

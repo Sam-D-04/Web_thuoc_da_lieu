@@ -131,7 +131,8 @@ const navItems = [
   { to: '/warehouse/products', label: 'Sản phẩm', icon: 'products' },
   { to: '/warehouse/batches', label: 'Lô hàng', icon: 'batches' },
   { to: '/warehouse/inventory', label: 'Tồn kho', icon: 'inventory' },
-  { to: '/warehouse/alerts', label: 'Cảnh báo', icon: 'alerts' }
+  { to: '/warehouse/alerts', label: 'Cảnh báo', icon: 'alerts' },
+  { to: '/warehouse/revenue', label: 'Doanh thu', icon: 'revenue' }
 ]
 
 const isActiveRoute = (path) => route.path === path || route.path.startsWith(`${path}/`)
@@ -216,6 +217,13 @@ const icons = {
       <path d="M10 4.5H5.8A1.8 1.8 0 0 0 4 6.3v11.4a1.8 1.8 0 0 0 1.8 1.8H10" />
       <path d="M13 8.5 17 12l-4 3.5" />
       <path d="M17 12H8.5" />
+    </svg>
+  `,
+  revenue: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+      <line x1="1" y1="10" x2="23" y2="10"/>
+      <path d="M8 14h.01M12 14h.01M16 14h.01"/>
     </svg>
   `
 }
