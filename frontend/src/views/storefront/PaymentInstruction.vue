@@ -29,22 +29,9 @@
         </div>
       </div>
 
-      <!-- QR Code -->
-      <div class="flex flex-col items-center py-6 px-5 border-b border-gray-100">
-        <p class="text-sm font-semibold text-gray-700 mb-3">Quét mã QR để thanh toán</p>
-        <div class="p-2 border-2 border-gray-200 rounded-xl bg-white">
-          <img
-            :src="qrUrl"
-            alt="QR thanh toán"
-            class="w-52 h-52 object-contain"
-          />
-        </div>
-        <p class="text-xs text-gray-400 mt-2">Hỗ trợ tất cả ứng dụng ngân hàng</p>
-      </div>
-
       <!-- Thông tin tài khoản -->
       <div class="px-5 py-4 space-y-3">
-        <p class="text-sm font-semibold text-gray-700">Hoặc chuyển khoản thủ công</p>
+        <p class="text-sm font-semibold text-gray-700">Thông tin chuyển khoản</p>
 
         <div class="space-y-2.5">
           <div class="flex justify-between items-center py-2 border-b border-gray-50">
@@ -143,14 +130,6 @@ const route = useRoute()
 
 const orderCode = computed(() => route.query.code || '')
 const amount    = computed(() => Number(route.query.amount) || 0)
-
-const qrUrl = computed(() => {
-  const bank    = 'VCB'
-  const account = '1021324862'
-  const name    = encodeURIComponent('NGUYEN HAI DANG')
-  const info    = encodeURIComponent(orderCode.value)
-  return `https://img.vietqr.io/image/${bank}-${account}-compact2.png?amount=${amount.value}&addInfo=${info}&accountName=${name}`
-})
 
 const formatPrice = (val) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)

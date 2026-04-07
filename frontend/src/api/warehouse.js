@@ -154,7 +154,11 @@ export const warehouseApi = {
   },
 
   async updateProduct(id, payload) {
-    const response = await apiClient.put(`/products/${id}`, payload)
+    // Dùng POST + _method=PUT để Laravel nhận được file upload
+    const isFormData = payload instanceof FormData
+    const response = await apiClient.post(`/products/${id}`, payload, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+    })
     return response.data
   },
 

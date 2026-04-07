@@ -171,14 +171,3 @@ WEB_THUOC/
         ├── routes_reference.md     # Tài liệu API đầy đủ
         └── github_tasks_to_do.md   # Phân công công việc team
 ```
-
----
-
-## 📚 Tài liệu tham khảo
-
-- [API Routes Reference](docs/ThongTin/routes_reference.md)
-- [Github Tasks & Phân công](docs/ThongTin/github_tasks_to_do.md)
-
----
-
-© 2026 Dermacity · Da Liễu Chuyên Sâu

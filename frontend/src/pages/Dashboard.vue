@@ -542,9 +542,20 @@ watch(
   { deep: true, immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   buildDashboardSummary()
   renderRevenueChart()
+  try {
+    await Promise.all([
+      orderStore.fetchAdminOrders(),
+      productStore.fetchProducts({ per_page: 200 }),
+      batchStore.fetchBatches(),
+      customerStore.fetchCustomers(),
+      alertStore.fetchAlerts()
+    ])
+  } catch {
+    // giữ dữ liệu hiện tại nếu có lỗi fetch
+  }
 })
 
 onBeforeUnmount(() => {

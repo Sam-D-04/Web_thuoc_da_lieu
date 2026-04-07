@@ -241,6 +241,21 @@ const handleFormSaved = async (saved) => {
     return
   }
 
+  const buildFormData = (data, imageFile, isUpdate = false) => {
+    const fd = new FormData()
+    if (isUpdate) fd.append('_method', 'PUT')
+    fd.append('category_id', String(data.category_id))
+    if (data.brand_id) fd.append('brand_id', String(data.brand_id))
+    fd.append('name', data.name)
+    fd.append('description', data.description || '')
+    fd.append('price_listed', String(data.price_listed))
+    fd.append('dosage_form', data.dosage_form || '')
+    fd.append('volume', data.volume || '')
+    fd.append('is_active', data.is_active ? '1' : '0')
+    if (imageFile) fd.append('image', imageFile)
+    return fd
+  }
+
   const payload = {
     category_id: saved.category_id,
     brand_id: saved.brand_id || null,
@@ -254,7 +269,8 @@ const handleFormSaved = async (saved) => {
 
   try {
     if (saved.id) {
-      await warehouseApi.updateProduct(saved.id, payload)
+      const formData = buildFormData(payload, saved.image_file || null, true)
+      await warehouseApi.updateProduct(saved.id, formData)
     } else {
       const formData = new FormData()
       formData.append('category_id', String(payload.category_id))

@@ -91,6 +91,12 @@
             </td>
             <td class="col-actions">
               <button
+                class="action-btn add-batch-btn"
+                title="Nhập thêm lô cho sản phẩm này"
+                v-html="getAddBatchIcon()"
+                @click="openQuickAddModal(batch)"
+              ></button>
+              <button
                 class="action-btn edit-btn"
                 title="Chỉnh sửa"
                 v-html="getEditIcon()"
@@ -437,6 +443,16 @@ const openAddModal = async () => {
   formRef.value?.clearValidate?.()
 }
 
+const openQuickAddModal = async (batch) => {
+  modalMode.value = 'add'
+  editingBatchId.value = null
+  resetForm()
+  formState.product_id = batch.product_id
+  showModal.value = true
+  await nextTick()
+  formRef.value?.clearValidate?.()
+}
+
 const openEditModal = async (batch) => {
   modalMode.value = 'edit'
   editingBatchId.value = batch.id
@@ -544,6 +560,12 @@ const submitModal = async () => {
     saving.value = false
   }
 }
+
+const getAddBatchIcon = () => `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+`
 
 const getEditIcon = () => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -853,6 +875,12 @@ onMounted(async () => {
   border-color: #1e3a8a;
   background: #f0f4f8;
   color: #1e3a8a;
+}
+
+.add-batch-btn:hover {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #16a34a;
 }
 
 .delete-btn:hover {

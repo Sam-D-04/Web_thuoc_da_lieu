@@ -43,7 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Products CRUD
         Route::post('/products',           [ProductController::class, 'store']);
-        Route::put('/products/{id}',       [ProductController::class, 'update']);
+        Route::put('/products/{id}',        [ProductController::class, 'update']);
+        Route::post('/products/{id}',       [ProductController::class, 'update']); // hỗ trợ file upload
         Route::delete('/products/{id}',    [ProductController::class, 'destroy']);
 
         // Categories CRUD
