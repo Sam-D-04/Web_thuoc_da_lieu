@@ -9,7 +9,7 @@
         </svg>
       </div>
       <h1 class="text-xl font-bold text-gray-800">Đặt hàng thành công!</h1>
-      <p class="text-sm text-gray-500 mt-1">Vui lòng chuyển khoản để hoàn tất đơn hàng</p>
+      <p class="text-sm text-gray-500 mt-1">Quét mã QR bên dưới để hoàn tất thanh toán</p>
     </div>
 
     <!-- Card thông tin thanh toán -->
@@ -23,60 +23,71 @@
             <p class="font-bold text-gray-800 text-lg tracking-wide">{{ orderCode }}</p>
           </div>
           <div class="text-right">
-            <p class="text-xs text-gray-500">Số tiền cần chuyển</p>
+            <p class="text-xs text-gray-500">Số tiền cần thanh toán</p>
             <p class="font-bold text-primary text-xl">{{ formatPrice(amount) }}</p>
           </div>
         </div>
       </div>
 
-      <!-- Thông tin tài khoản -->
-      <div class="px-5 py-4 space-y-3">
-        <p class="text-sm font-semibold text-gray-700">Thông tin chuyển khoản</p>
+      <!-- QR VietQR -->
+      <div class="px-5 py-5 flex flex-col items-center">
+        <p class="text-sm font-semibold text-gray-700 mb-3">Quét mã QR để thanh toán</p>
+        <div class="border border-gray-100 rounded-xl p-2 shadow-sm bg-white">
+          <img
+            :src="qrUrl"
+            alt="QR thanh toán"
+            class="w-56 h-56 object-contain"
+          />
+        </div>
+        <p class="text-xs text-gray-400 mt-2">Hỗ trợ tất cả ứng dụng ngân hàng</p>
+      </div>
 
-        <div class="space-y-2.5">
-          <div class="flex justify-between items-center py-2 border-b border-gray-50">
-            <span class="text-sm text-gray-500">Ngân hàng</span>
-            <span class="text-sm font-semibold text-gray-800">Vietcombank (VCB)</span>
+      <!-- Thông tin tài khoản -->
+      <div class="px-5 pb-4 space-y-2.5 border-t border-gray-50 pt-4">
+        <p class="text-sm font-semibold text-gray-700 mb-1">Hoặc chuyển khoản thủ công</p>
+
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50">
+          <span class="text-sm text-gray-500">Ngân hàng</span>
+          <span class="text-sm font-semibold text-gray-800">Vietcombank (VCB)</span>
+        </div>
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50">
+          <span class="text-sm text-gray-500">Số tài khoản</span>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-gray-800 tracking-wider">1021324862</span>
+            <button @click="copyText('1021324862')" class="text-primary hover:text-blue-700 transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
           </div>
-          <div class="flex justify-between items-center py-2 border-b border-gray-50">
-            <span class="text-sm text-gray-500">Số tài khoản</span>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-gray-800 tracking-wider">1021324862</span>
-              <button @click="copyText('1021324862')" class="text-primary hover:text-blue-700 transition-colors">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-              </button>
-            </div>
+        </div>
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50">
+          <span class="text-sm text-gray-500">Chủ tài khoản</span>
+          <span class="text-sm font-semibold text-gray-800 uppercase">NGUYEN HAI DANG</span>
+        </div>
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50">
+          <span class="text-sm text-gray-500">Số tiền</span>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-primary">{{ formatPrice(amount) }}</span>
+            <button @click="copyText(String(amount))" class="text-primary hover:text-blue-700 transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
           </div>
-          <div class="flex justify-between items-center py-2 border-b border-gray-50">
-            <span class="text-sm text-gray-500">Chủ tài khoản</span>
-            <span class="text-sm font-semibold text-gray-800 uppercase">NGUYEN HAI DANG</span>
-          </div>
-          <div class="flex justify-between items-center py-2 border-b border-gray-50">
-            <span class="text-sm text-gray-500">Số tiền</span>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-primary">{{ formatPrice(amount) }}</span>
-              <button @click="copyText(String(amount))" class="text-primary hover:text-blue-700 transition-colors">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="flex justify-between items-center py-2">
-            <span class="text-sm text-gray-500">Nội dung chuyển khoản</span>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-gray-800">{{ orderCode }}</span>
-              <button @click="copyText(orderCode)" class="text-primary hover:text-blue-700 transition-colors">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-              </button>
-            </div>
+        </div>
+        <div class="flex justify-between items-center py-1.5">
+          <span class="text-sm text-gray-500">Nội dung CK</span>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-gray-800">{{ orderCode }}</span>
+            <button @click="copyText(orderCode)" class="text-primary hover:text-blue-700 transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -130,6 +141,10 @@ const route = useRoute()
 
 const orderCode = computed(() => route.query.code || '')
 const amount    = computed(() => Number(route.query.amount) || 0)
+
+const qrUrl = computed(() =>
+  `https://img.vietqr.io/image/VCB-1021324862-compact2.png?amount=${amount.value}&addInfo=${encodeURIComponent(orderCode.value)}&accountName=NGUYEN%20HAI%20DANG`
+)
 
 const formatPrice = (val) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
