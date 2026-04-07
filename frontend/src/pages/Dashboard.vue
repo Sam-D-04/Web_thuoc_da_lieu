@@ -529,17 +529,16 @@ const renderRevenueChart = () => {
 
 watch(
   [
-    () => orderStore.orders,
-    () => productStore.products,
-    () => batchStore.batches,
-    () => customerStore.customers,
-    () => alertStore.alerts
+    () => orderStore.orders.length,
+    () => productStore.products.length,
+    () => batchStore.batches.length,
+    () => customerStore.customers.length,
+    () => alertStore.alerts.length
   ],
   () => {
     buildDashboardSummary()
     renderRevenueChart()
-  },
-  { deep: true, immediate: true }
+  }
 )
 
 onMounted(async () => {
