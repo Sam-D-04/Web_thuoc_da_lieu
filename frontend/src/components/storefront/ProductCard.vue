@@ -6,7 +6,7 @@
   >
     <!-- Image -->
     <div class="relative aspect-square bg-gradient-to-br from-blue-50 to-cyan-50 overflow-hidden" @click="$emit('view', product)">
-      <img v-if="product.image" :src="product.image" :alt="product.name" class="w-full h-full object-contain p-3" />
+      <img v-if="product.image" :src="product.image" :alt="product.name" class="w-full h-full object-contain p-3" @error="handleImageError" />
       <div v-else class="w-full h-full flex flex-col items-center justify-center gap-2 p-4">
         <div class="w-16 h-16 bg-white/70 rounded-xl flex items-center justify-center shadow-sm">
           <svg class="w-8 h-8 text-blue-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -64,8 +64,14 @@
 </template>
 
 <script setup>
-defineProps({ product: { type: Object, required: true } })
+import { handleProductImageError } from '@/utils/productImages'
+
+const props = defineProps({ product: { type: Object, required: true } })
 defineEmits(['add-to-cart', 'view', 'hover'])
 
 const formatPrice = (price) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+
+const handleImageError = (event) => {
+  handleProductImageError(event, props.product)
+}
 </script>

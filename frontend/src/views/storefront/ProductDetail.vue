@@ -33,7 +33,7 @@
         <!-- Image -->
         <div>
           <div class="aspect-square bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden">
-            <img v-if="product.image" :src="product.image" :alt="product.name" class="w-full h-full object-contain p-8" />
+            <img v-if="product.image" :src="product.image" :alt="product.name" class="w-full h-full object-contain p-8" @error="handleImageError" />
             <div v-else class="flex flex-col items-center justify-center gap-3 p-8">
               <div class="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm">
                 <svg class="w-12 h-12 text-blue-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -170,6 +170,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProductStore } from '@/stores/shopProducts'
 import { useCartStore } from '@/stores/cart'
+import { handleProductImageError } from '@/utils/productImages'
 
 const route = useRoute()
 const router = useRouter()
@@ -207,6 +208,10 @@ const handleAddToCart = () => {
 const handleBuyNow = () => {
   cartStore.addItem(product.value, quantity.value)
   router.push('/checkout')
+}
+
+const handleImageError = (event) => {
+  handleProductImageError(event, product.value)
 }
 
 onMounted(async () => {

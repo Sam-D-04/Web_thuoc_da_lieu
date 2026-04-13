@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import { resolveProductImage } from '@/utils/productImages'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
@@ -69,7 +70,7 @@ const normalizeProduct = (product) => {
     stock_warning: Number(product.stock_warning ?? 10),
     category_name: product.category?.name || product.category_name || product.category || 'N/A',
     brand_name: product.brand?.name || product.brand_name || product.brand || 'N/A',
-    image_url: resolveImageUrl(product.image) || resolveImageUrl(product.image_url),
+    image_url: resolveProductImage(product),
     is_active: isActive,
     status: isActive ? 'Hoạt động' : 'Ngừng'
   }

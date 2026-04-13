@@ -154,6 +154,15 @@ export const warehouseApi = {
   },
 
   async updateProduct(id, payload) {
+    if (payload instanceof FormData) {
+      const formData = payload
+      if (!formData.has('_method')) {
+        formData.append('_method', 'PUT')
+      }
+      const response = await apiClient.post(`/products/${id}`, formData)
+      return response.data
+    }
+
     const response = await apiClient.put(`/products/${id}`, payload)
     return response.data
   },

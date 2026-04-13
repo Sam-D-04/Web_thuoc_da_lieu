@@ -64,7 +64,7 @@
               <td class="col-id">#{{ product.id }}</td>
               <td class="col-name">
                 <div class="product-name">
-                  <img :src="resolveImage(product)" alt="Ảnh sản phẩm" class="product-thumb">
+                  <img :src="resolveImage(product)" alt="Ảnh sản phẩm" class="product-thumb" @error="handleImageError(product, $event)">
                   <div>
                     <p class="name">{{ product.name }}</p>
                     <p class="type">/{{ resolveSlug(product) || 'chua-co-slug' }}</p>
@@ -104,6 +104,7 @@ import { onMounted, reactive, ref } from 'vue'
 import WarehouseSidebar from '@/components/warehouse/Sidebar.vue'
 import ProductFormModal from '@/components/ProductFormModal.vue'
 import { warehouseApi } from '@/api/warehouse'
+import { handleProductImageError, resolveProductImage } from '@/utils/productImages'
 
 const loading = ref(false)
 const error = ref('')
@@ -135,7 +136,11 @@ const normalizeStatus = (isActive) => (Boolean(isActive) ? 'Hoạt động' : 'N
 
 const getStatusClass = (isActive) => (Boolean(isActive) ? 'active' : 'inactive')
 
-const resolveImage = (product) => product.image_url || product.image || '/product-placeholder.svg'
+const resolveImage = (product) => resolveProductImage(product)
+
+const handleImageError = (product, event) => {
+  handleProductImageError(event, product)
+}
 
 const resolveSlug = (product) => {
   if (product.slug) return product.slug
@@ -240,10 +245,32 @@ const handleFormSaved = async (saved) => {
       image_url: saved.image_url || ''
     }
 
+      const buildFormData = () => {
+        const formData = new FormData()
+        formData.append('category_id', String(payload.category_id))
+
+        if (payload.brand_id) {
+          formData.append('brand_id', String(payload.brand_id))
+        }
+
+        formData.append('name', payload.name)
+        formData.append('description', payload.description)
+        formData.append('price_listed', String(payload.price))
+        formData.append('dosage_form', payload.dosage_form)
+        formData.append('volume', payload.volume)
+        formData.append('is_active', payload.is_active ? '1' : '0')
+
+        if (saved.image_file) {
+          formData.append('image', saved.image_file)
+        }
+
+        return formData
+      }
+
     if (saved.id && rows.value.some((item) => Number(item.id) === Number(saved.id))) {
-      await warehouseApi.updateProduct(saved.id, payload)
+        await warehouseApi.updateProduct(saved.id, buildFormData())
     } else {
-      await warehouseApi.createProduct(payload)
+        await warehouseApi.createProduct(buildFormData())
     }
 
     editingProduct.value = null

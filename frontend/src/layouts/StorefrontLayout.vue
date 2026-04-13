@@ -211,7 +211,6 @@ const handleSearch = () => {
     router.push({ path: '/shop', query: { q: searchQuery.value.trim() } })
   }
 }
-
 onMounted(async () => {
   if (!productStore.categories.length) {
     await productStore.fetchCategories()

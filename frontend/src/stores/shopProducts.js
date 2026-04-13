@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import { resolveProductImage } from '@/utils/productImages'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
@@ -83,7 +84,7 @@ export const useProductStore = defineStore('products', () => {
         price_listed: Number(item.price_listed || 0),
         dosage_form: item.dosage_form || '',
         volume: item.volume || '',
-        image: resolveImageUrl(item.image) || resolveImageUrl(item.image_url),
+        image: resolveProductImage(item),
         description: item.description || '',
         stock_quantity: Number(item.batch_remaining_quantity ?? item.stock_quantity ?? 0),
         is_active: Boolean(item.is_active),
