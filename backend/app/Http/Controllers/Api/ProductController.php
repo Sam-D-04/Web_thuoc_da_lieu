@@ -4,22 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    /**
-     * Returns 'r2' or 's3' when cloud storage is configured, otherwise 'public'.
-     */
-    private function uploadDisk(): string
-    {
-        $disk = config('filesystems.default', 'public');
-        return in_array($disk, ['r2', 's3']) ? $disk : 'public';
-    }
-
     // ─── GET /api/products ───────────────────────────────
     public function index(Request $request)
     {
@@ -36,52 +25,46 @@ class ProductController extends Controller
                   ->whereDate('expiry_date', '>=', now()->toDateString());
             });
 
-        // Search by name or brand name
-        if ($s = $request->get('search')) {
+        if ($s = $request->input('search')) {
             $query->where(function ($q) use ($s) {
                 $q->where('name', 'like', "%{$s}%")
                   ->orWhereHas('brand', fn($b) => $b->where('name', 'like', "%{$s}%"));
             });
         }
 
-        // Filter by category slug
-        if ($slug = $request->get('category')) {
+        if ($slug = $request->input('category')) {
             $query->whereHas('category', fn($q) => $q->where('slug', $slug));
         }
 
-        // Filter by category_id
-        if ($catId = $request->get('category_id')) {
+        if ($catId = $request->input('category_id')) {
             $query->where('category_id', $catId);
         }
 
-        // Filter by brand_id
-        if ($brandId = $request->get('brand_id')) {
+        if ($brandId = $request->input('brand_id')) {
             $query->where('brand_id', $brandId);
         }
 
-        // Price range
-        if ($min = $request->get('min_price')) {
+        if ($min = $request->input('min_price')) {
             $query->where('price_listed', '>=', $min);
         }
-        if ($max = $request->get('max_price')) {
+        if ($max = $request->input('max_price')) {
             $query->where('price_listed', '<=', $max);
         }
 
-        // Sort
-        match ($request->get('sort', 'latest')) {
+        match ($request->input('sort', 'latest')) {
             'price_asc'  => $query->orderBy('price_listed', 'asc'),
             'price_desc' => $query->orderBy('price_listed', 'desc'),
             'popular'    => $query->orderBy('sold_count', 'desc'),
             default      => $query->latest(),
         };
 
-        $perPage = min((int) $request->get('per_page', 12), 50);
+        $perPage = min((int) $request->input('per_page', 12), 50);
 
         return response()->json($query->paginate($perPage));
     }
 
     // ─── GET /api/products/{slug} ────────────────────────
-    public function show(Request $request, string $slug)
+    public function show(string $slug)
     {
         $product = Product::with(['category', 'brand', 'batches' => fn($q) => $q->available()])
             ->where('slug', $slug)
@@ -111,11 +94,7 @@ class ProductController extends Controller
         $validated['created_by'] = $request->user()->id;
 
         if ($request->hasFile('image')) {
-            $disk = $this->uploadDisk();
-            $path = $request->file('image')->store('products', $disk);
-            $validated['image'] = $disk === 'public'
-                ? $path
-                : Storage::disk($disk)->url($path);
+            $validated['image'] = $this->toBase64($request->file('image'));
         }
 
         $product = Product::create($validated);
@@ -147,17 +126,7 @@ class ProductController extends Controller
         $validated['updated_by'] = $request->user()->id;
 
         if ($request->hasFile('image')) {
-            $disk = $this->uploadDisk();
-            $oldPath = $product->image && !str_starts_with($product->image, 'http')
-                ? $product->image
-                : null;
-            if ($oldPath && Storage::disk($disk)->exists($oldPath)) {
-                Storage::disk($disk)->delete($oldPath);
-            }
-            $path = $request->file('image')->store('products', $disk);
-            $validated['image'] = $disk === 'public'
-                ? $path
-                : Storage::disk($disk)->url($path);
+            $validated['image'] = $this->toBase64($request->file('image'));
         }
 
         $product->update($validated);
@@ -168,18 +137,16 @@ class ProductController extends Controller
     // ─── DELETE /api/products/{id} (admin) ──────────────
     public function destroy(int $id)
     {
-        $product = Product::findOrFail($id);
-
-        $disk = $this->uploadDisk();
-        $imagePath = $product->image && !str_starts_with($product->image, 'http')
-            ? $product->image
-            : null;
-        if ($imagePath && Storage::disk($disk)->exists($imagePath)) {
-            Storage::disk($disk)->delete($imagePath);
-        }
-
-        $product->delete();
+        Product::findOrFail($id)->delete();
 
         return response()->json(['message' => 'Đã xóa sản phẩm']);
+    }
+
+    // ─── Helper ─────────────────────────────────────────
+    private function toBase64(\Illuminate\Http\UploadedFile $file): string
+    {
+        $mime = $file->getMimeType();
+        $data = base64_encode(file_get_contents($file->getRealPath()));
+        return "data:{$mime};base64,{$data}";
     }
 }

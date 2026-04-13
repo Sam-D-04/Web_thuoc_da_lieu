@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -65,16 +64,7 @@ class Product extends Model
     // ─── Accessors ──────────────────────────────────────
     public function getImageUrlAttribute(): ?string
     {
-        if (!$this->image) return null;
-        if (str_starts_with($this->image, 'http')) return $this->image;
-
-        // Legacy: relative path stored before R2 migration
-        $url = Storage::disk('public')->url($this->image);
-        if (str_starts_with($url, 'http')) {
-            return $url;
-        }
-        $origin = request()?->getSchemeAndHttpHost() ?: rtrim(config('app.url'), '/');
-        return rtrim($origin, '/') . '/' . ltrim($url, '/');
+        return $this->image ?: null;
     }
 
     public function getIsLowStockAttribute(): bool
