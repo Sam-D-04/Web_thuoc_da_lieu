@@ -40,11 +40,10 @@ const resolveImageUrl = (value) => {
   }
 
   const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '')
-  // Nếu giá trị có dạng storage/products/... hoặc products/... -> map về frontend assets
+  // Nếu giá trị có dạng storage/products/... hoặc products/... -> trả về đường dẫn do backend phục vụ
+  // (ảnh mới upload từ admin được lưu ở backend storage, nên cần lấy từ /storage/...)
   if (/^(storage\/)?products\//i.test(normalized)) {
-    const parts = normalized.split('/')
-    const fileName = parts[parts.length - 1]
-    return `/assets/products/${fileName}`
+    return `${API_ORIGIN}/storage/${normalized.replace(/^\/+/, '')}`
   }
 
   // Nếu chỉ là filename (ví dụ: "cerave-cleanser.jpg"), trả về asset phía frontend
