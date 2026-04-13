@@ -132,7 +132,7 @@ Mở **Developer Console** (F12) tại `http://localhost:5173` và chạy:
 
 ```javascript
 // Giả lập đăng nhập Admin (chỉ dùng khi chưa có hệ thống Auth thật)
-localStorage.setItem('auth_user', JSON.stringify({ role: 'admin' }));
+    localStorage.setItem('auth_user', JSON.stringify({ role: 'admin' }));
 ```
 
 Sau đó truy cập: `http://localhost:5173/admin/dashboard`
