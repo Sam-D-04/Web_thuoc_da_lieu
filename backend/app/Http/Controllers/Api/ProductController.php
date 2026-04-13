@@ -102,7 +102,7 @@ class ProductController extends Controller
         $validated['created_by'] = $request->user()->id;
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $validated['image'] = $request->file('image')->store('products', 'r2');
         }
 
         $product = Product::create($validated);
@@ -134,10 +134,10 @@ class ProductController extends Controller
         $validated['updated_by'] = $request->user()->id;
 
         if ($request->hasFile('image')) {
-            if ($product->image && Storage::disk('public')->exists($product->image)) {
-                Storage::disk('public')->delete($product->image);
+            if ($product->image && Storage::disk('r2')->exists($product->image)) {
+                Storage::disk('r2')->delete($product->image);
             }
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $validated['image'] = $request->file('image')->store('products', 'r2');
         }
 
         $product->update($validated);
@@ -150,8 +150,8 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
-            Storage::disk('public')->delete($product->image);
+        if ($product->image && Storage::disk('r2')->exists($product->image)) {
+            Storage::disk('r2')->delete($product->image);
         }
 
         $product->delete();
