@@ -40,13 +40,20 @@ const resolveImageUrl = (value) => {
   }
 
   const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (normalized.startsWith('storage/')) {
-    return `${API_ORIGIN}/${normalized}`
+  // Nếu giá trị có dạng storage/products/... hoặc products/... -> map về frontend assets
+  if (/^(storage\/)?products\//i.test(normalized)) {
+    const parts = normalized.split('/')
+    const fileName = parts[parts.length - 1]
+    return `/assets/products/${fileName}`
   }
 
   // Nếu chỉ là filename (ví dụ: "cerave-cleanser.jpg"), trả về asset phía frontend
   if (/^[^\/]+\.(jpg|jpeg|png|gif|svg|webp)$/i.test(normalized)) {
     return `/assets/products/${normalized}`
+  }
+
+  if (normalized.startsWith('storage/')) {
+    return `${API_ORIGIN}/${normalized}`
   }
 
   return `${API_ORIGIN}/storage/${normalized}`
