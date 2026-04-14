@@ -7,37 +7,52 @@
         <p class="breadcrumb">Nhà thuốc Da liễu / Báo cáo</p>
       </div>
       <div class="header-controls">
-        <select v-model="selectedPeriod" class="date-select">
+        <select v-model="selectedPeriod" class="date-select" :disabled="loading">
           <option value="7days">7 ngày gần đây</option>
           <option value="30days">30 ngày</option>
           <option value="90days">90 ngày</option>
           <option value="year">Năm nay</option>
         </select>
-        <button class="btn btn-primary" @click="exportCSV">📥 Xuất báo cáo</button>
+        <button class="btn btn-primary" @click="exportCSV" :disabled="loading">📥 Xuất báo cáo</button>
       </div>
     </div>
+
+    <!-- Error -->
+    <div v-if="error" class="error-banner">{{ error }}</div>
+
+    <!-- Loading -->
+    <div v-if="loading" class="loading-overlay">Đang tải dữ liệu...</div>
 
     <!-- Summary Cards -->
     <div class="summary-grid">
       <div class="summary-card">
         <p class="label">Doanh thu toàn kỳ</p>
-        <p class="value">{{ formatVnd(totalRevenue) }}</p>
-        <p class="change positive">↑ 24% so với {{ previousPeriodLabel }}</p>
+        <p class="value">{{ formatVnd(summary.total_revenue) }}</p>
+        <p v-if="summary.revenue_change !== null" :class="['change', summary.revenue_change >= 0 ? 'positive' : 'negative']">
+          {{ summary.revenue_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.revenue_change) }}% so với {{ previousPeriodLabel }}
+        </p>
+        <p v-else class="change neutral">— chưa có dữ liệu kỳ trước</p>
       </div>
       <div class="summary-card">
         <p class="label">Tổng đơn hàng</p>
-        <p class="value">{{ totalOrders }}</p>
-        <p class="change positive">↑ 18% so với {{ previousPeriodLabel }}</p>
+        <p class="value">{{ summary.total_orders }}</p>
+        <p v-if="summary.orders_change !== null" :class="['change', summary.orders_change >= 0 ? 'positive' : 'negative']">
+          {{ summary.orders_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.orders_change) }}% so với {{ previousPeriodLabel }}
+        </p>
+        <p v-else class="change neutral">— chưa có dữ liệu kỳ trước</p>
       </div>
       <div class="summary-card">
         <p class="label">Giá trị đơn hàng trung bình</p>
-        <p class="value">{{ formatVnd(averageOrderValue) }}</p>
-        <p class="change positive">↑ 5% so với {{ previousPeriodLabel }}</p>
+        <p class="value">{{ formatVnd(summary.avg_order_value) }}</p>
+        <p v-if="summary.avg_change !== null" :class="['change', summary.avg_change >= 0 ? 'positive' : 'negative']">
+          {{ summary.avg_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.avg_change) }}% so với {{ previousPeriodLabel }}
+        </p>
+        <p v-else class="change neutral">— chưa có dữ liệu kỳ trước</p>
       </div>
       <div class="summary-card">
-        <p class="label">Tỷ lệ chuyển đổi</p>
-        <p class="value">3.2%</p>
-        <p class="change negative">↓ 0.5% so với {{ previousPeriodLabel }}</p>
+        <p class="label">Kỳ doanh thu cao nhất</p>
+        <p class="value best-period">{{ bestPeriodDisplay }}</p>
+        <p class="change neutral">{{ formatVnd(summary.best_period?.revenue) }}</p>
       </div>
     </div>
 
@@ -46,7 +61,7 @@
       <!-- Revenue Chart -->
       <div class="chart-container big">
         <div class="chart-header">
-          <h3>Doanh thu theo kỳ (30 ngày)</h3>
+          <h3>Doanh thu theo {{ periodLabel }}</h3>
         </div>
         <div class="chart">
           <Bar :data="revenueChartData" :options="revenueChartOptions" />
@@ -59,7 +74,8 @@
           <h3>Doanh thu theo danh mục</h3>
         </div>
         <div class="chart">
-          <canvas id="categoryChart"></canvas>
+          <Doughnut v-if="categoryChartData.labels.length" :data="categoryChartData" :options="categoryChartOptions" />
+          <div v-else class="no-data">Chưa có dữ liệu</div>
         </div>
       </div>
 
@@ -70,37 +86,37 @@
         </div>
         <table class="simple-table">
           <tbody>
-            <tr v-if="topProducts.length === 0">
+            <tr v-if="!topProducts.length">
               <td colspan="2" class="text-right">Chưa có dữ liệu</td>
             </tr>
-            <tr v-for="item in topProducts" :key="item.name">
+            <tr v-for="item in topProducts" :key="item.product_id">
               <td>{{ item.name }}</td>
-              <td class="text-right">{{ formatVnd(item.revenue) }}</td>
+              <td class="text-right">{{ item.sold }} sp — {{ formatVnd(item.revenue) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Additional Reports -->
+    <!-- Inventory Reports -->
     <div class="reports-section">
       <h3>Báo cáo hàng tồn kho</h3>
       <div class="mini-report">
         <div class="report-item">
-          <p class="label">Sản phẩm có tồn kho cao</p>
-          <p class="value">0 sản phẩm</p>
+          <p class="label">Sản phẩm tồn kho cao</p>
+          <p class="value">{{ inventory.high_stock }} sản phẩm</p>
         </div>
         <div class="report-item">
-          <p class="label">Sản phẩm hạn chế tồn kho</p>
-          <p class="value">0 sản phẩm</p>
+          <p class="label">Sản phẩm sắp hết hàng</p>
+          <p class="value">{{ inventory.low_stock }} sản phẩm</p>
         </div>
         <div class="report-item">
-          <p class="label">Sản phẩm sắp hết hạn</p>
-          <p class="value">0 lô</p>
+          <p class="label">Lô sắp hết hạn (30 ngày)</p>
+          <p class="value">{{ inventory.expiring_soon }} lô</p>
         </div>
         <div class="report-item">
           <p class="label">Giá trị tồn kho</p>
-          <p class="value">{{ formatVnd(0) }}</p>
+          <p class="value">{{ formatVnd(inventory.total_value) }}</p>
         </div>
       </div>
     </div>
@@ -108,31 +124,234 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import dayjs from 'dayjs'
-import Chart from 'chart.js/auto'
-import { Bar } from 'vue-chartjs'
-import { useOrderStore } from '@/stores/orders'
+import { computed, onMounted, ref, watch } from 'vue'
+import axios from 'axios'
+import {
+  Chart as ChartJS,
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import { Bar, Doughnut } from 'vue-chartjs'
 
-const selectedPeriod = ref('7days')
+ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
+// ── API client ──────────────────────────────────────────────────────────────
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  timeout: 15000,
+  headers: { Accept: 'application/json' },
+})
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// ── State ───────────────────────────────────────────────────────────────────
+const selectedPeriod = ref('30days')
+const loading = ref(false)
+const error = ref(null)
+
+const chartData = ref([])
+const summary = ref({
+  total_revenue: 0,
+  total_orders: 0,
+  avg_order_value: 0,
+  best_period: null,
+  revenue_change: null,
+  orders_change: null,
+  avg_change: null,
+})
+const topProducts = ref([])
+const categoryRevenue = ref([])
+
+const inventory = ref({
+  low_stock: 0,
+  high_stock: 0,
+  expiring_soon: 0,
+  total_value: 0,
+})
+
+// ── Period mapping ──────────────────────────────────────────────────────────
+const periodParams = computed(() => {
+  switch (selectedPeriod.value) {
+    case '7days':  return { period: 'daily',   days: 7 }
+    case '30days': return { period: 'daily',   days: 30 }
+    case '90days': return { period: 'daily',   days: 90 }
+    case 'year':   return { period: 'monthly', year: new Date().getFullYear() }
+    default:       return { period: 'daily',   days: 30 }
+  }
+})
+
+const previousPeriodLabel = computed(() => ({
+  '7days':  '7 ngày liền trước',
+  '30days': '30 ngày liền trước',
+  '90days': '90 ngày liền trước',
+  'year':   'cùng kỳ năm trước',
+})[selectedPeriod.value] || 'kỳ trước')
+
+const periodLabel = computed(() => ({
+  '7days':  '7 ngày',
+  '30days': '30 ngày',
+  '90days': '90 ngày',
+  'year':   'từng tháng năm nay',
+})[selectedPeriod.value] || '')
+
+const bestPeriodDisplay = computed(() => {
+  const bp = summary.value.best_period
+  if (!bp) return '—'
+  return bp.display || bp.label || '—'
+})
+
+// ── Fetch revenue ───────────────────────────────────────────────────────────
+const fetchRevenue = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const { data } = await api.get('/admin/stats/revenue', { params: periodParams.value })
+    chartData.value     = data.chart_data     || []
+    summary.value       = data.summary        || summary.value
+    topProducts.value   = data.top_products   || []
+    categoryRevenue.value = data.category_revenue || []
+  } catch (err) {
+    error.value = err?.response?.data?.message || err.message || 'Lỗi khi tải báo cáo doanh thu'
+  } finally {
+    loading.value = false
+  }
+}
+
+// ── Fetch overview (inventory) ──────────────────────────────────────────────
+const fetchOverview = async () => {
+  try {
+    const { data } = await api.get('/admin/stats/overview')
+    if (data.inventory) inventory.value = data.inventory
+  } catch {
+    // non-critical — keep defaults
+  }
+}
+
+onMounted(() => {
+  fetchRevenue()
+  fetchOverview()
+})
+
+watch(selectedPeriod, fetchRevenue)
+
+// ── Formatting ──────────────────────────────────────────────────────────────
+const vndFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
+const formatVnd = (value) => `${vndFormatter.format(Number(value || 0))}₫`
+
+// ── Revenue chart ────────────────────────────────────────────────────────────
+const revenueChartData = computed(() => ({
+  labels: chartData.value.map((r) => r.display || r.label),
+  datasets: [{
+    label: 'Doanh thu (VND)',
+    data: chartData.value.map((r) => r.revenue),
+    backgroundColor: '#1890ff',
+    borderRadius: 6,
+    maxBarThickness: 24,
+  }],
+}))
+
+const revenueChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        title: (items) => {
+          const row = chartData.value[items[0]?.dataIndex]
+          return row ? (row.display || row.label) : ''
+        },
+        label: (ctx) => `Doanh thu: ${vndFormatter.format(Number(ctx.parsed.y || 0))}₫`,
+        afterLabel: (ctx) => {
+          const row = chartData.value[ctx.dataIndex]
+          return row ? `Đơn hàng: ${row.order_count}` : ''
+        },
+      },
+    },
+  },
+  scales: {
+    y: {
+      grid: { color: 'rgba(148,163,184,0.14)' },
+      ticks: {
+        color: '#8094b2',
+        callback: (v) => {
+          if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+          if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
+          return v
+        },
+      },
+    },
+    x: {
+      grid: { color: 'rgba(148,163,184,0.08)' },
+      ticks: {
+        color: '#8094b2',
+        maxRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: selectedPeriod.value === '90days' ? 12 : 20,
+      },
+    },
+  },
+}))
+
+// ── Category doughnut ────────────────────────────────────────────────────────
+const CATEGORY_COLORS = [
+  '#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#bfdbfe',
+  '#6366f1','#a5b4fc','#818cf8','#4f46e5','#2563eb',
+]
+
+const categoryChartData = computed(() => ({
+  labels: categoryRevenue.value.map((c) => c.name),
+  datasets: [{
+    data: categoryRevenue.value.map((c) => c.revenue),
+    backgroundColor: categoryRevenue.value.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+  }],
+}))
+
+const categoryChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: { color: '#6b7f9f', usePointStyle: true, pointStyle: 'circle', font: { size: 11 } },
+    },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => ` ${vndFormatter.format(ctx.parsed)}₫`,
+      },
+    },
+  },
+}
+
+// ── Export CSV ───────────────────────────────────────────────────────────────
 const exportCSV = () => {
   const rows = [
-    ['Báo cáo doanh thu - Dermacity'],
+    ['Báo cáo doanh thu - Nhà thuốc Da liễu'],
     ['Kỳ:', selectedPeriod.value],
-    ['Tổng doanh thu:', totalRevenue.value],
-    ['Tổng đơn hàng:', totalOrders.value],
-    ['Giá trị đơn trung bình:', averageOrderValue.value],
+    ['Tổng doanh thu:', summary.value.total_revenue],
+    ['Tổng đơn hàng:', summary.value.total_orders],
+    ['Giá trị đơn trung bình:', summary.value.avg_order_value],
     [],
     ['Top sản phẩm bán chạy'],
-    ['Tên sản phẩm', 'Doanh thu (VND)'],
-    ...topProducts.value.map(p => [p.name, p.revenue]),
+    ['Tên sản phẩm', 'Số lượng bán', 'Doanh thu (VND)'],
+    ...topProducts.value.map((p) => [p.name, p.sold, p.revenue]),
     [],
-    ['Doanh thu 30 ngày gần đây'],
-    ['Ngày', 'Doanh thu (VND)'],
-    ...revenueChartResult.value.fullDates.map((d, i) => [d, revenueChartResult.value.values[i]]),
+    ['Doanh thu theo thời gian'],
+    ['Kỳ', 'Số đơn', 'Doanh thu (VND)'],
+    ...chartData.value.map((r) => [r.display || r.label, r.order_count, r.revenue]),
+    [],
+    ['Doanh thu theo danh mục'],
+    ['Danh mục', 'Doanh thu (VND)'],
+    ...categoryRevenue.value.map((c) => [c.name, c.revenue]),
   ]
-  const csv = rows.map(r => r.join(',')).join('\n')
+  const csv = rows.map((r) => r.join(',')).join('\n')
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -141,187 +360,6 @@ const exportCSV = () => {
   a.click()
   URL.revokeObjectURL(url)
 }
-const categoryChart = ref(null)
-const orderStore = useOrderStore()
-
-const vndFormatter = new Intl.NumberFormat('vi-VN', {
-  maximumFractionDigits: 0
-})
-const formatVnd = (value) => `${vndFormatter.format(Number(value || 0))}₫`
-
-const paidOrders = computed(() =>
-  orderStore.orders.filter((order) => String(order.payment_status || '').toLowerCase() === 'paid')
-)
-
-const totalOrders = computed(() => orderStore.orders.length)
-
-const totalRevenue = computed(() =>
-  paidOrders.value.reduce((sum, order) => sum + Number(order.final_amount || 0), 0)
-)
-
-const averageOrderValue = computed(() => {
-  if (!totalOrders.value) return 0
-  return Math.round(totalRevenue.value / totalOrders.value)
-})
-
-const topProducts = computed(() => {
-  const revenueMap = new Map()
-
-  orderStore.orders.forEach((order) => {
-    ;(order.items || []).forEach((item) => {
-      const key = item.product_name || item.productName || `#${item.product_id || item.productId || 'NA'}`
-      const current = revenueMap.get(key) || 0
-      const amount = Number(item.subtotal || Number(item.unit_price || 0) * Number(item.quantity || 0))
-      revenueMap.set(key, current + amount)
-    })
-  })
-
-  return [...revenueMap.entries()]
-    .map(([name, revenue]) => ({ name, revenue }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 10)
-})
-
-// Xử lý dữ liệu cho biểu đồ:
-// 1) Tạo trục thời gian 30 ngày liên tục
-// 2) Chỉ cộng doanh thu của đơn paid
-// 3) Fill 0 cho ngày không có doanh thu
-const processChartData = (orders) => {
-  const recentDays = Array.from({ length: 30 }, (_, index) => dayjs().subtract(29 - index, 'day'))
-  const revenueByDate = new Map(recentDays.map((day) => [day.format('YYYY-MM-DD'), 0]))
-
-  orders
-    .filter((order) => order.payment_status === 'paid')
-    .forEach((order) => {
-      const dateKey = dayjs(order.order_date).format('YYYY-MM-DD')
-      if (!revenueByDate.has(dateKey)) return
-      revenueByDate.set(dateKey, revenueByDate.get(dateKey) + Number(order.final_amount || 0))
-    })
-
-  const fullDates = recentDays.map((day) => day.format('DD/MM/YYYY'))
-  const labels = recentDays.map((day) => day.format('DD'))
-  const values = recentDays.map((day) => revenueByDate.get(day.format('YYYY-MM-DD')) || 0)
-
-  return { labels, values, fullDates }
-}
-
-const revenueChartResult = computed(() => processChartData(orderStore.orders))
-
-const revenueChartData = computed(() => {
-  return {
-    labels: revenueChartResult.value.labels,
-    datasets: [
-      {
-        label: 'Doanh thu (VND)',
-        data: revenueChartResult.value.values,
-        backgroundColor: '#1890ff',
-        borderRadius: 6,
-        maxBarThickness: 20
-      }
-    ]
-  }
-})
-
-const revenueChartOptions = computed(() => {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          title: (items) => {
-            const index = items[0]?.dataIndex ?? 0
-            return `Ngày ${revenueChartResult.value.fullDates[index]}`
-          },
-          label: (context) => {
-            return `Doanh thu: ${vndFormatter.format(Number(context.parsed.y || 0))} đ`
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        grid: {
-          color: 'rgba(148, 163, 184, 0.14)'
-        },
-        ticks: {
-          color: '#8094b2',
-          callback: (value) => `${(Number(value) / 1000000).toFixed(1)}M`
-        }
-      },
-      x: {
-        grid: {
-          color: 'rgba(148, 163, 184, 0.08)'
-        },
-        ticks: {
-          color: '#8094b2',
-          autoSkip: false,
-          callback: (value, index) => {
-            const label = revenueChartResult.value.labels[index]
-            const keepLabels = ['01', '05', '10', '15', '20', '25', '30']
-            return keepLabels.includes(label) ? label : ''
-          }
-        }
-      }
-    }
-  }
-})
-
-const previousPeriodLabel = computed(() => {
-  const periodMap = {
-    '7days': '7 ngày liền trước',
-    '30days': '30 ngày liền trước',
-    '90days': '90 ngày liền trước',
-    year: 'cùng kỳ năm trước'
-  }
-
-  return periodMap[selectedPeriod.value] || 'kỳ trước'
-})
-
-onMounted(() => {
-  // Category Chart
-  const categoryCtx = document.getElementById('categoryChart')
-  if (categoryCtx) {
-    categoryChart.value = new Chart(categoryCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Mụn viêm', 'Phục hồi da', 'Thâm mụn', 'Chống nắng', 'Khác'],
-        datasets: [{
-          data: [35, 25, 20, 15, 5],
-          backgroundColor: [
-            '#1e3a8a',
-            '#3b82f6',
-            '#60a5fa',
-            '#bfdbfe',
-            '#e0e7ff'
-          ]
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              color: '#6b7f9f',
-              usePointStyle: true,
-              pointStyle: 'circle'
-            }
-          }
-        }
-      }
-    })
-  }
-})
-
-onBeforeUnmount(() => {
-  if (categoryChart.value) {
-    categoryChart.value.destroy()
-    categoryChart.value = null
-  }
-})
 </script>
 
 <style scoped>
@@ -331,7 +369,7 @@ onBeforeUnmount(() => {
 
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 
 /* Page Header */
@@ -368,6 +406,25 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+/* Error / Loading */
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.loading-overlay {
+  text-align: center;
+  padding: 16px;
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
 /* Summary Grid */
 .summary-grid {
   display: grid;
@@ -400,10 +457,14 @@ onBeforeUnmount(() => {
 }
 
 .summary-card .value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #1e3a8a;
   margin: 0 0 8px 0;
+}
+
+.summary-card .value.best-period {
+  font-size: 26px;
 }
 
 .summary-card .change {
@@ -412,13 +473,9 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-.change.positive {
-  color: #059669;
-}
-
-.change.negative {
-  color: #ef4444;
-}
+.change.positive { color: #059669; }
+.change.negative { color: #ef4444; }
+.change.neutral  { color: #94a3b8; }
 
 /* Charts Grid */
 .charts-grid {
@@ -456,13 +513,21 @@ onBeforeUnmount(() => {
   height: 300px;
 }
 
-.chart canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94a3b8;
+  font-size: 14px;
 }
 
 .table-container {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   grid-column: 2;
 }
 
@@ -473,7 +538,7 @@ onBeforeUnmount(() => {
 }
 
 .simple-table td {
-  padding: 10px 0;
+  padding: 8px 0;
   border-bottom: 1px solid #f1f5f9;
   color: #475569;
 }
@@ -487,6 +552,7 @@ onBeforeUnmount(() => {
   text-align: right;
   font-weight: 600;
   color: #1e3a8a;
+  white-space: nowrap;
 }
 
 /* Reports Section */
@@ -548,12 +614,17 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: #1e3a8a;
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #1e40af;
   box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
 }
@@ -568,10 +639,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .chart-container.big {
-    grid-column: auto;
-  }
-
+  .chart-container.big,
   .table-container {
     grid-column: auto;
   }

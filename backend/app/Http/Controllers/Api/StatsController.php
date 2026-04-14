@@ -3,48 +3,55 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Batch;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Product;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class StatsController extends Controller
 {
     /**
      * GET /api/admin/stats/revenue
-     * Thống kê doanh thu theo ngày/tháng
+     * Thống kê doanh thu: chart, top sản phẩm, danh mục, so sánh kỳ trước
      */
     public function revenue(Request $request)
     {
-        $validated = $request->validate([
-            'period' => 'nullable|in:daily,monthly,yearly',
-            'year'   => 'nullable|integer|min:2020|max:2099',
-            'month'  => 'nullable|integer|min:1|max:12',
-            'days'   => 'nullable|integer|min:7|max:365',
-        ]);
+        $period = $request->input('period', 'daily');   // daily | monthly | yearly
+        $year   = (int) ($request->input('year',  now()->year));
+        $days   = (int) ($request->input('days',  30));
 
-        $period = $validated['period'] ?? 'daily';
-        $year   = (int) ($validated['year']  ?? now()->year);
-        $month  = (int) ($validated['month'] ?? now()->month);
-        $days   = (int) ($validated['days']  ?? 30);
-
-        // --- Chọn cách nhóm ---
+        // ── Xác định khoảng thời gian hiện tại và kỳ trước ─────────────────────
         if ($period === 'daily') {
-            $from = now()->subDays($days - 1)->startOfDay();
+            $from     = now()->subDays($days - 1)->startOfDay();
+            $to       = now()->endOfDay();
+            $prevFrom = now()->subDays($days * 2 - 1)->startOfDay();
+            $prevTo   = now()->subDays($days)->endOfDay();
+        } elseif ($period === 'monthly') {
+            $from     = Carbon::create($year, 1, 1)->startOfDay();
+            $to       = Carbon::create($year, 12, 31)->endOfDay();
+            $prevFrom = Carbon::create($year - 1, 1, 1)->startOfDay();
+            $prevTo   = Carbon::create($year - 1, 12, 31)->endOfDay();
+        } else { // yearly
+            $from     = now()->subYears(4)->startOfYear();
+            $to       = now()->endOfDay();
+            $prevFrom = $prevTo = null;
+        }
+
+        // ── Dữ liệu chart ────────────────────────────────────────────────────────
+        if ($period === 'daily') {
             $rows = Order::select(
                     DB::raw("DATE(created_at) as label"),
                     DB::raw("COUNT(*) as order_count"),
-                    DB::raw("SUM(final_amount) as revenue")
+                    DB::raw("COALESCE(SUM(final_amount), 0) as revenue")
                 )
                 ->where('order_status', '!=', 'cancelled')
-                ->where('created_at', '>=', $from)
+                ->whereBetween('created_at', [$from, $to])
                 ->groupBy(DB::raw("DATE(created_at)"))
                 ->orderBy('label')
                 ->get();
 
-            // Điền ngày trống = 0
             $data = [];
             for ($i = $days - 1; $i >= 0; $i--) {
                 $dateStr = now()->subDays($i)->format('Y-m-d');
@@ -53,7 +60,7 @@ class StatsController extends Controller
                     'label'       => $dateStr,
                     'display'     => now()->subDays($i)->format('d/m'),
                     'order_count' => $row ? (int) $row->order_count : 0,
-                    'revenue'     => $row ? (float) $row->revenue    : 0,
+                    'revenue'     => $row ? (float) $row->revenue   : 0,
                 ];
             }
 
@@ -61,10 +68,10 @@ class StatsController extends Controller
             $rows = Order::select(
                     DB::raw("DATE_FORMAT(created_at, '%Y-%m') as label"),
                     DB::raw("COUNT(*) as order_count"),
-                    DB::raw("SUM(final_amount) as revenue")
+                    DB::raw("COALESCE(SUM(final_amount), 0) as revenue")
                 )
                 ->where('order_status', '!=', 'cancelled')
-                ->whereYear('created_at', $year)
+                ->whereBetween('created_at', [$from, $to])
                 ->groupBy(DB::raw("DATE_FORMAT(created_at, '%Y-%m')"))
                 ->orderBy('label')
                 ->get();
@@ -77,18 +84,18 @@ class StatsController extends Controller
                     'label'       => $key,
                     'display'     => "T{$m}",
                     'order_count' => $row ? (int) $row->order_count : 0,
-                    'revenue'     => $row ? (float) $row->revenue    : 0,
+                    'revenue'     => $row ? (float) $row->revenue   : 0,
                 ];
             }
 
-        } else { // yearly – 5 năm gần nhất
+        } else { // yearly
             $rows = Order::select(
                     DB::raw("YEAR(created_at) as label"),
                     DB::raw("COUNT(*) as order_count"),
-                    DB::raw("SUM(final_amount) as revenue")
+                    DB::raw("COALESCE(SUM(final_amount), 0) as revenue")
                 )
                 ->where('order_status', '!=', 'cancelled')
-                ->where('created_at', '>=', now()->subYears(4)->startOfYear())
+                ->whereBetween('created_at', [$from, $to])
                 ->groupBy(DB::raw("YEAR(created_at)"))
                 ->orderBy('label')
                 ->get();
@@ -100,59 +107,103 @@ class StatsController extends Controller
                     'label'       => (string) $y,
                     'display'     => (string) $y,
                     'order_count' => $row ? (int) $row->order_count : 0,
-                    'revenue'     => $row ? (float) $row->revenue    : 0,
+                    'revenue'     => $row ? (float) $row->revenue   : 0,
                 ];
             }
         }
 
-        // --- Tổng hợp KPI ---
-        $totalRevenue      = collect($data)->sum('revenue');
-        $totalOrders       = collect($data)->sum('order_count');
-        $avgOrderValue     = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 0) : 0;
-        $bestPeriod        = collect($data)->sortByDesc('revenue')->first();
+        $currentRevenue = collect($data)->sum('revenue');
+        $currentOrders  = collect($data)->sum('order_count');
+        $currentAvg     = $currentOrders > 0 ? round($currentRevenue / $currentOrders) : 0;
 
-        // --- Top sản phẩm bán chạy (top 5) ---
-        $topProducts = OrderItem::select(
-                'product_id',
-                DB::raw("SUM(quantity) as sold"),
-                DB::raw("SUM(total) as revenue")
+        // ── So sánh kỳ trước ─────────────────────────────────────────────────────
+        $revenueChange = $ordersChange = $avgChange = null;
+        if ($prevFrom) {
+            $prev = Order::where('order_status', '!=', 'cancelled')
+                ->whereBetween('created_at', [$prevFrom, $prevTo])
+                ->selectRaw('COUNT(*) as order_count, COALESCE(SUM(final_amount), 0) as revenue')
+                ->first();
+
+            $prevRevenue = (float) $prev->revenue;
+            $prevOrders  = (int)   $prev->order_count;
+            $prevAvg     = $prevOrders > 0 ? $prevRevenue / $prevOrders : 0;
+
+            $revenueChange = $prevRevenue > 0
+                ? round(($currentRevenue - $prevRevenue) / $prevRevenue * 100, 1) : null;
+            $ordersChange  = $prevOrders > 0
+                ? round(($currentOrders  - $prevOrders)  / $prevOrders  * 100, 1) : null;
+            $avgChange     = $prevAvg > 0
+                ? round(($currentAvg    - $prevAvg)    / $prevAvg    * 100, 1) : null;
+        }
+
+        // ── Top 10 sản phẩm bán chạy trong kỳ ───────────────────────────────────
+        $topProducts = DB::table('order_items')
+            ->select(
+                'order_items.product_id',
+                'products.name',
+                DB::raw("SUM(order_items.quantity) as sold"),
+                DB::raw("SUM(order_items.total) as revenue")
             )
-            ->whereHas('order', fn ($q) =>
-                $q->where('order_status', '!=', 'cancelled')
-            )
-            ->with('product:id,name,price_listed')
-            ->groupBy('product_id')
+            ->join('orders',   'order_items.order_id',   '=', 'orders.id')
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->where('orders.order_status', '!=', 'cancelled')
+            ->whereBetween('orders.created_at', [$from, $to])
+            ->groupBy('order_items.product_id', 'products.name')
             ->orderByDesc('sold')
-            ->limit(5)
+            ->limit(10)
             ->get()
-            ->map(fn ($item) => [
-                'product_id'   => $item->product_id,
-                'name'         => $item->product?->name ?? 'Không rõ',
-                'sold'         => (int) $item->sold,
-                'revenue'      => (float) $item->revenue,
+            ->map(fn ($row) => [
+                'product_id' => $row->product_id,
+                'name'       => $row->name,
+                'sold'       => (int)   $row->sold,
+                'revenue'    => (float) $row->revenue,
+            ]);
+
+        // ── Doanh thu theo danh mục trong kỳ ─────────────────────────────────────
+        $categoryRevenue = DB::table('order_items')
+            ->select(
+                'categories.id',
+                'categories.name',
+                DB::raw("SUM(order_items.total) as revenue")
+            )
+            ->join('orders',     'order_items.order_id',   '=', 'orders.id')
+            ->join('products',   'order_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id',   '=', 'categories.id')
+            ->where('orders.order_status', '!=', 'cancelled')
+            ->whereBetween('orders.created_at', [$from, $to])
+            ->groupBy('categories.id', 'categories.name')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn ($row) => [
+                'name'    => $row->name,
+                'revenue' => (float) $row->revenue,
             ]);
 
         return response()->json([
-            'period'        => $period,
-            'chart_data'    => $data,
-            'summary' => [
-                'total_revenue'   => $totalRevenue,
-                'total_orders'    => $totalOrders,
-                'avg_order_value' => $avgOrderValue,
-                'best_period'     => $bestPeriod,
+            'period'           => $period,
+            'chart_data'       => $data,
+            'summary'          => [
+                'total_revenue'   => $currentRevenue,
+                'total_orders'    => $currentOrders,
+                'avg_order_value' => $currentAvg,
+                'best_period'     => collect($data)->sortByDesc('revenue')->first(),
+                'revenue_change'  => $revenueChange,
+                'orders_change'   => $ordersChange,
+                'avg_change'      => $avgChange,
             ],
-            'top_products'  => $topProducts,
+            'top_products'     => $topProducts,
+            'category_revenue' => $categoryRevenue,
         ]);
     }
 
     /**
      * GET /api/admin/stats/overview
-     * Dashboard KPI tổng quan nhanh
+     * KPI nhanh cho dashboard + thống kê tồn kho
      */
     public function overview()
     {
-        $now   = now();
-        $today = $now->toDateString();
+        $now        = now();
+        $today      = $now->toDateString();
         $monthStart = $now->copy()->startOfMonth()->toDateString();
 
         $todayRevenue = Order::where('order_status', '!=', 'cancelled')
@@ -164,13 +215,37 @@ class StatsController extends Controller
             ->sum('final_amount');
 
         $pendingOrders = Order::where('order_status', 'pending')->count();
-        $totalProducts = Product::where('status', 'active')->count();
+        $totalProducts = Product::where('is_active', true)->count();
+
+        // ── Tồn kho ──────────────────────────────────────────────────────────────
+        $lowStockCount = Product::where('is_active', true)
+            ->whereRaw('stock_quantity <= stock_warning AND stock_warning > 0')
+            ->count();
+
+        $highStockCount = Product::where('is_active', true)
+            ->whereRaw('stock_quantity > stock_warning * 3')
+            ->count();
+
+        $expiringSoonCount = Batch::where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>', $today)
+            ->where('expiry_date', '<=', $now->copy()->addDays(30)->toDateString())
+            ->count();
+
+        $inventoryValue = DB::table('products')
+            ->where('is_active', true)
+            ->sum(DB::raw('stock_quantity * price_listed'));
 
         return response()->json([
             'today_revenue'  => (float) $todayRevenue,
             'month_revenue'  => (float) $monthRevenue,
-            'pending_orders' => (int) $pendingOrders,
-            'total_products' => (int) $totalProducts,
+            'pending_orders' => (int)   $pendingOrders,
+            'total_products' => (int)   $totalProducts,
+            'inventory'      => [
+                'low_stock'     => (int)   $lowStockCount,
+                'high_stock'    => (int)   $highStockCount,
+                'expiring_soon' => (int)   $expiringSoonCount,
+                'total_value'   => (float) $inventoryValue,
+            ],
         ]);
     }
 }
