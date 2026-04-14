@@ -287,7 +287,7 @@ const fetchOrders = async (page = 1) => {
     }
   } catch (err) {
     if (err?.response?.status === 401) {
-      authStore.logout()
+      await authStore.logout()
       router.push('/login')
     } else {
       ordersError.value =

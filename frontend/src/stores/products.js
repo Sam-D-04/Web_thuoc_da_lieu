@@ -25,6 +25,8 @@ const resolveImageUrl = (value) => {
   const raw = String(value).trim()
   if (!raw) return ''
 
+  if (raw.startsWith('data:')) return raw
+
   if (/^https?:\/\//i.test(raw)) {
     try {
       const parsed = new URL(raw)
