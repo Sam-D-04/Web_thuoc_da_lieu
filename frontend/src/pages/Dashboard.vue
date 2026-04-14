@@ -35,10 +35,14 @@
           <h3>Tổng doanh thu</h3>
           <span class="kpi-period">Tháng này</span>
         </div>
-        <div class="kpi-value">{{ formatCurrency(totalRevenue) }}</div>
-        <div class="kpi-trend positive">
+        <div class="kpi-value">{{ formatCurrency(overview.month_revenue) }}</div>
+        <div v-if="overview.month_revenue_change !== null" :class="['kpi-trend', overview.month_revenue_change >= 0 ? 'positive' : 'negative']">
+          <span class="trend-icon" v-html="getDashboardIcon(overview.month_revenue_change >= 0 ? 'trend-up' : 'trend-down')"></span>
+          <span>{{ overview.month_revenue_change >= 0 ? '+' : '' }}{{ overview.month_revenue_change }}%</span> so với tháng trước
+        </div>
+        <div v-else class="kpi-trend">
           <span class="trend-icon" v-html="getDashboardIcon('trend-up')"></span>
-          <span>+12.5%</span> so với tháng trước
+          <span>Hôm nay: {{ formatCurrency(overview.today_revenue) }}</span>
         </div>
       </div>
 
@@ -47,7 +51,7 @@
           <h3>Đơn hàng</h3>
           <span class="kpi-period">Đang chờ xử lý</span>
         </div>
-        <div class="kpi-value">{{ pendingOrders }}</div>
+        <div class="kpi-value">{{ overview.pending_orders }}</div>
         <div class="kpi-trend warning">
           <span class="trend-icon" v-html="getDashboardIcon('hourglass')"></span>
           <span>Cần xử lý ngay</span>
@@ -59,9 +63,9 @@
           <h3>Tồn kho</h3>
           <span class="kpi-period">Sản phẩm</span>
         </div>
-        <div class="kpi-value">{{ totalProducts }}</div>
-        <div class="kpi-trend" :class="{ warning: lowStockProducts > 0 }">
-          <span v-if="lowStockProducts > 0"><span class="trend-icon" v-html="getDashboardIcon('warning')"></span>{{ lowStockProducts }} sản phẩm hạn chế</span>
+        <div class="kpi-value">{{ overview.total_products }}</div>
+        <div class="kpi-trend" :class="{ warning: overview.inventory.low_stock > 0 }">
+          <span v-if="overview.inventory.low_stock > 0"><span class="trend-icon" v-html="getDashboardIcon('warning')"></span>{{ overview.inventory.low_stock }} sản phẩm sắp hết</span>
           <span v-else><span class="trend-icon" v-html="getDashboardIcon('check')"></span>Tất cả trong khoảng an toàn</span>
         </div>
       </div>
@@ -71,10 +75,10 @@
           <h3>Khách hàng</h3>
           <span class="kpi-period">Hoạt động</span>
         </div>
-        <div class="kpi-value">{{ activeCustomers }}</div>
+        <div class="kpi-value">{{ overview.active_customers }}</div>
         <div class="kpi-trend">
           <span class="trend-icon" v-html="getDashboardIcon('users')"></span>
-          <span>Tổng {{ totalCustomers }} khách hàng</span>
+          <span>Tổng {{ overview.total_customers }} khách hàng</span>
         </div>
       </div>
     </div>
@@ -85,12 +89,6 @@
       <div class="chart-container">
         <div class="chart-header">
           <h3>Doanh thu theo ngày (7 ngày gần đây)</h3>
-          <select class="chart-filter">
-            <option>Tất cả sản phẩm</option>
-            <option>Kem dưỡng</option>
-            <option>Serum</option>
-            <option>Gel</option>
-          </select>
         </div>
         <div class="chart chart-revenue">
           <canvas id="revenueChart"></canvas>
@@ -103,10 +101,13 @@
           <h3>Sản phẩm bán chạy</h3>
         </div>
         <div class="product-list">
-          <div v-for="product in topProducts" :key="product.id" class="product-item">
+          <div v-if="!topProducts.length" class="product-item">
+            <div class="product-info"><p class="product-name">Chưa có dữ liệu</p></div>
+          </div>
+          <div v-for="product in topProducts" :key="product.product_id" class="product-item">
             <div class="product-info">
               <p class="product-name">{{ product.name }}</p>
-              <p class="product-sales">{{ product.sales }} đơn hàng</p>
+              <p class="product-sales">{{ product.sold }} sản phẩm</p>
             </div>
             <p class="product-revenue">{{ formatCurrency(product.revenue) }}</p>
           </div>
@@ -123,15 +124,15 @@
 
       <div class="batch-grid">
         <div class="batch-card expired">
-          <div class="batch-count">{{ expiredBatches }}</div>
+          <div class="batch-count">{{ overview.batch_counts.expired }}</div>
           <p class="batch-label">Hết hạn</p>
         </div>
         <div class="batch-card warning">
-          <div class="batch-count">{{ expiringBatches }}</div>
-          <p class="batch-label">Sắp hết hạn</p>
+          <div class="batch-count">{{ overview.batch_counts.expiring_soon }}</div>
+          <p class="batch-label">Sắp hết hạn (30 ngày)</p>
         </div>
         <div class="batch-card safe">
-          <div class="batch-count">{{ safeBatches }}</div>
+          <div class="batch-count">{{ overview.batch_counts.safe }}</div>
           <p class="batch-label">Còn hạn</p>
         </div>
       </div>
@@ -168,214 +169,130 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useProductStore } from '@/stores/products'
-import { useBatchStore } from '@/stores/batches'
-import { useOrderStore } from '@/stores/orders'
-import { useCustomerStore } from '@/stores/customers'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useAlertStore } from '@/stores/alerts'
+import axios from 'axios'
 import Chart from 'chart.js/auto'
-import dayjs from 'dayjs'
 
-const productStore = useProductStore()
-const batchStore = useBatchStore()
-const orderStore = useOrderStore()
-const customerStore = useCustomerStore()
+// ── API client ──────────────────────────────────────────────────────────────
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  timeout: 15000,
+  headers: { Accept: 'application/json' },
+})
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
 const alertStore = useAlertStore()
 
+// ── State ───────────────────────────────────────────────────────────────────
 const showAlert = ref(true)
 const revenueChart = ref(null)
 let chartRenderToken = 0
-const dashboardSummary = ref({
-  totalRevenue: 0,
-  pendingOrders: 0,
-  totalProducts: 0,
-  lowStockProducts: 0,
-  totalCustomers: 0,
-  activeCustomers: 0,
-  expiredBatches: 0,
-  expiringBatches: 0,
-  safeBatches: 0,
-  unresolvedAlertsCount: 0,
-  unresolvedCriticalAlerts: 0,
-  unresolvedWarningAlerts: 0,
-  recentAlerts: [],
-  topProducts: [],
-  revenueLabels: [],
-  revenueValues: []
+
+const overview = ref({
+  today_revenue: 0,
+  month_revenue: 0,
+  month_revenue_change: null,
+  pending_orders: 0,
+  total_products: 0,
+  total_customers: 0,
+  active_customers: 0,
+  inventory: { low_stock: 0, high_stock: 0, total_value: 0 },
+  batch_counts: { expired: 0, expiring_soon: 0, safe: 0 },
 })
 
-const normalizePaymentStatus = (order) => {
-  if (order.payment_status) return String(order.payment_status).toLowerCase()
-  if (order.paymentStatus) return String(order.paymentStatus).toLowerCase()
-  return ['Đã giao hàng', 'Đã thanh toán'].includes(order.status) ? 'paid' : 'unpaid'
-}
+const revenueChartRows = ref([])   // chart_data từ revenue API
+const topProducts      = ref([])   // top_products từ revenue API
 
-const normalizeOrderStatus = (order) => {
-  if (order.order_status) return order.order_status
-  if (order.orderStatus) return order.orderStatus
+// ── Derived alert state ──────────────────────────────────────────────────────
+const unresolvedAlertsCount = computed(() =>
+  alertStore.alerts.filter(a => !Number(a.is_resolved ?? a.isResolved)).length
+)
+const criticalAlerts = computed(() =>
+  alertStore.alerts.filter(a => !Number(a.is_resolved ?? a.isResolved) && a.severity === 'danger').length
+)
+const warningAlerts = computed(() =>
+  alertStore.alerts.filter(a => !Number(a.is_resolved ?? a.isResolved) && a.severity === 'warning').length
+)
+const recentAlerts = computed(() =>
+  alertStore.alerts
+    .filter(a => !Number(a.is_resolved ?? a.isResolved))
+    .sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at))
+    .slice(0, 5)
+)
 
-  if (order.status === 'Chờ xử lý') return 'pending'
-  if (order.status === 'Đang xác nhận') return 'confirmed'
-  if (order.status === 'Đang chuẩn bị hàng') return 'processing'
-  return 'delivered'
-}
-
-const getFinalAmount = (order) => Number(order.final_amount ?? order.finalAmount ?? order.total ?? 0)
-
-const getStockQuantity = (product) => Number(product.stock_quantity ?? product.stock ?? 0)
-const getStockWarning = (product) => Number(product.stock_warning ?? 10)
-
-const isResolvedAlert = (alert) => Number(alert.isResolved ?? alert.is_resolved ?? (alert.status === 'Đã xử lý' ? 1 : 0)) === 1
-
-const vndFormatter = new Intl.NumberFormat('vi-VN', {
-  maximumFractionDigits: 0
-})
-
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const vndFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
 const formatCurrency = (value) => `${vndFormatter.format(Number(value || 0))} đ`
 
-const buildRevenueSeries = (paidOrders) => {
-  const days = Array.from({ length: 7 }, (_, index) => dayjs().subtract(6 - index, 'day').startOf('day'))
-  const dayKeys = days.map((day) => day.format('YYYY-MM-DD'))
-  const revenueMap = Object.fromEntries(dayKeys.map((key) => [key, 0]))
-
-  paidOrders.forEach((order) => {
-    const rawDate = order.orderDate || order.createdAt || order.created_at || order.deliveryDate
-    const parsed = dayjs(rawDate)
-    if (!parsed.isValid()) return
-
-    const key = parsed.startOf('day').format('YYYY-MM-DD')
-    if (!(key in revenueMap)) return
-
-    revenueMap[key] += getFinalAmount(order)
-  })
-
-  let values = dayKeys.map((key) => revenueMap[key])
-
-  // Nếu dữ liệu thực chưa rơi vào 7 ngày gần đây thì dùng mẫu ổn định để biểu đồ vẫn đẹp và dễ đọc.
-  if (values.every((value) => value === 0)) {
-    const base = Math.max(Math.round((paidOrders.reduce((sum, order) => sum + getFinalAmount(order), 0) || 12000000) / 7), 1000000)
-    const pattern = [0.72, 0.95, 0.84, 0.63, 1.08, 0.79, 0.91]
-    values = pattern.map((ratio) => Math.round(base * ratio))
-  }
-
-  return {
-    labels: days.map((day) => day.format('DD/MM')),
-    values
-  }
-}
-
-const buildTopProducts = (paidOrders) => {
-  const summaryMap = new Map()
-
-  paidOrders.forEach((order) => {
-    order.items?.forEach((item) => {
-      const key = item.productName || `Sản phẩm #${item.productId}`
-      const revenue = Number(item.subtotal ?? item.quantity * item.price ?? 0)
-      const current = summaryMap.get(key) || { id: item.productId || key, name: key, sales: 0, revenue: 0 }
-      current.sales += Number(item.quantity || 0)
-      current.revenue += revenue
-      summaryMap.set(key, current)
-    })
-  })
-
-  return [...summaryMap.values()]
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 3)
-}
-
-const buildDashboardSummary = () => {
-  const paidOrders = orderStore.orders.filter((order) => normalizePaymentStatus(order) === 'paid')
-  const pendingOrdersCount = orderStore.orders.filter((order) => normalizeOrderStatus(order) === 'pending').length
-  const totalRevenueValue = paidOrders.reduce((sum, order) => sum + getFinalAmount(order), 0)
-
-  const products = productStore.products
-  const lowStockProductsCount = products.filter((product) => getStockQuantity(product) <= getStockWarning(product)).length
-
-  const customers = customerStore.customers.filter((customer) => (customer.role || 'customer') === 'customer')
-  const activeCustomersCount = customers.filter((customer) => customer.status === 'Đang hoạt động' || customer.status === 'active').length
-
-  const batchesFefo = batchStore.batchesSortedByFefo
-  const expiredBatchesCount = batchesFefo.filter((batch) => batch.status === 'Hết hạn').length
-  const expiringBatchesCount = batchesFefo.filter((batch) => batch.status === 'Sắp hết hạn').length
-  const safeBatchesCount = batchesFefo.filter((batch) => batch.status === 'Còn hàng').length
-
-  const unresolvedAlerts = alertStore.alerts.filter((alert) => !isResolvedAlert(alert))
-  const unresolvedCriticalAlertsCount = unresolvedAlerts.filter((alert) => alert.severity === 'danger').length
-  const unresolvedWarningAlertsCount = unresolvedAlerts.filter((alert) => alert.severity === 'warning').length
-  const recentUnresolvedAlerts = unresolvedAlerts
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 5)
-
-  const chartData = buildRevenueSeries(paidOrders)
-
-  dashboardSummary.value = {
-    totalRevenue: totalRevenueValue,
-    pendingOrders: pendingOrdersCount,
-    totalProducts: products.length,
-    lowStockProducts: lowStockProductsCount,
-    totalCustomers: customers.length,
-    activeCustomers: activeCustomersCount,
-    expiredBatches: expiredBatchesCount,
-    expiringBatches: expiringBatchesCount,
-    safeBatches: safeBatchesCount,
-    unresolvedAlertsCount: unresolvedAlerts.length,
-    unresolvedCriticalAlerts: unresolvedCriticalAlertsCount,
-    unresolvedWarningAlerts: unresolvedWarningAlertsCount,
-    recentAlerts: recentUnresolvedAlerts,
-    topProducts: buildTopProducts(paidOrders),
-    revenueLabels: chartData.labels,
-    revenueValues: chartData.values
-  }
-}
-
-const totalRevenue = computed(() => dashboardSummary.value.totalRevenue)
-const pendingOrders = computed(() => dashboardSummary.value.pendingOrders)
-const totalProducts = computed(() => dashboardSummary.value.totalProducts)
-const lowStockProducts = computed(() => dashboardSummary.value.lowStockProducts)
-const activeCustomers = computed(() => dashboardSummary.value.activeCustomers)
-const totalCustomers = computed(() => dashboardSummary.value.totalCustomers)
-const expiredBatches = computed(() => dashboardSummary.value.expiredBatches)
-const expiringBatches = computed(() => dashboardSummary.value.expiringBatches)
-const safeBatches = computed(() => dashboardSummary.value.safeBatches)
-const unresolvedAlertsCount = computed(() => dashboardSummary.value.unresolvedAlertsCount)
-const recentAlerts = computed(() => dashboardSummary.value.recentAlerts)
-const topProducts = computed(() => dashboardSummary.value.topProducts)
-
-const criticalAlerts = computed(() => dashboardSummary.value.unresolvedCriticalAlerts)
-const warningAlerts = computed(() => dashboardSummary.value.unresolvedWarningAlerts)
-
-const dismissAlert = () => {
-  showAlert.value = false
-}
+const dismissAlert = () => { showAlert.value = false }
 
 const getTimeAgo = (date) => {
-  const now = new Date()
-  const time = new Date(date)
-  const diff = Math.floor((now - time) / 1000)
-  
+  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
   if (diff < 60) return 'Vừa xong'
   if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`
   if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`
   if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`
-  return date
+  return new Date(date).toLocaleDateString('vi-VN')
 }
 
-const markAlertAsRead = (id) => {
-  alertStore.markAsRead(id)
+const markAlertAsRead = (id) => { alertStore.markAsRead(id) }
+
+// ── Data fetch ───────────────────────────────────────────────────────────────
+const fetchOverview = async () => {
+  try {
+    const { data } = await api.get('/admin/stats/overview')
+    overview.value = {
+      today_revenue:        data.today_revenue        ?? 0,
+      month_revenue:        data.month_revenue        ?? 0,
+      month_revenue_change: data.month_revenue_change ?? null,
+      pending_orders:       data.pending_orders       ?? 0,
+      total_products:       data.total_products       ?? 0,
+      total_customers:      data.total_customers      ?? 0,
+      active_customers:     data.active_customers     ?? 0,
+      inventory:     data.inventory     ?? { low_stock: 0, high_stock: 0, total_value: 0 },
+      batch_counts:  data.batch_counts  ?? { expired: 0, expiring_soon: 0, safe: 0 },
+    }
+  } catch {
+    // keep defaults on error
+  }
 }
 
+const fetchRevenue7Days = async () => {
+  try {
+    const { data } = await api.get('/admin/stats/revenue', {
+      params: { period: 'daily', days: 7 },
+    })
+    revenueChartRows.value = data.chart_data     || []
+    topProducts.value      = (data.top_products  || []).slice(0, 5)
+  } catch {
+    // keep defaults
+  }
+}
+
+// ── Export CSV ───────────────────────────────────────────────────────────────
 const exportDashboardCSV = () => {
-  const fmt = (v) => new Intl.NumberFormat('vi-VN').format(v)
+  const fmt = (v) => vndFormatter.format(Number(v || 0))
   const rows = [
-    ['Báo cáo tổng quan - Dermacity'],
+    ['Báo cáo tổng quan - Nhà thuốc Da liễu'],
     ['Ngày xuất:', new Date().toLocaleDateString('vi-VN')],
     [],
     ['Chỉ số', 'Giá trị'],
-    ['Doanh thu', fmt(totalRevenue.value)],
-    ['Đơn chờ xử lý', pendingOrders.value],
-    ['Tổng sản phẩm', totalProducts.value],
-    ['Tổng khách hàng', totalCustomers.value],
+    ['Doanh thu tháng này', fmt(overview.value.month_revenue)],
+    ['Doanh thu hôm nay',   fmt(overview.value.today_revenue)],
+    ['Đơn chờ xử lý',       overview.value.pending_orders],
+    ['Tổng sản phẩm',       overview.value.total_products],
+    ['Tổng khách hàng',     overview.value.total_customers],
+    ['Khách hàng active',   overview.value.active_customers],
+    [],
+    ['Lô hàng FEFO'],
+    ['Hết hạn',             overview.value.batch_counts.expired],
+    ['Sắp hết hạn (30 ngày)', overview.value.batch_counts.expiring_soon],
+    ['Còn hạn',             overview.value.batch_counts.safe],
   ]
   const csv = rows.map(r => r.join(',')).join('\n')
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -387,61 +304,24 @@ const exportDashboardCSV = () => {
   URL.revokeObjectURL(url)
 }
 
-const getChartLabels = () => [...dashboardSummary.value.revenueLabels]
-const getChartValues = () => dashboardSummary.value.revenueValues.map((value) => Number(value || 0))
-
+// ── Icons ────────────────────────────────────────────────────────────────────
 const getDashboardIcon = (name) => {
   const iconMap = {
-    report: `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M7 4.5h10l2 2v13H5v-15a.5.5 0 0 1 .5-.5Z" />
-        <path d="M9 11h6" />
-        <path d="M9 15h6" />
-      </svg>
-    `,
-    warning: `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 4.5 4.7 18h14.6L12 4.5Z" />
-        <path d="M12 9v4" />
-        <circle cx="12" cy="16.4" r="1" fill="currentColor" stroke="none" />
-      </svg>
-    `,
-    'trend-up': `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 15.5 10 10l3.5 3.5L19 8" />
-        <path d="M15.2 8H19v3.8" />
-      </svg>
-    `,
-    hourglass: `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M7 4.5h10" />
-        <path d="M7 19.5h10" />
-        <path d="M8.5 6.5c0 3 1.8 4 3.5 5.5-1.7 1.5-3.5 2.5-3.5 5.5" />
-        <path d="M15.5 6.5c0 3-1.8 4-3.5 5.5 1.7 1.5 3.5 2.5 3.5 5.5" />
-      </svg>
-    `,
-    users: `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="9" cy="8" r="2.8" />
-        <circle cx="16.5" cy="10" r="2.2" opacity="0.7" />
-        <path d="M4.5 18.5c1.1-2.8 3.3-4.4 4.5-4.4s3.4 1.6 4.5 4.4" />
-        <path d="M13.5 18.5c.8-1.8 2.3-2.9 3.4-2.9 1 0 2.2 1 2.9 2.9" />
-      </svg>
-    `,
-    check: `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12.5 9.5 17 19 7.5" />
-      </svg>
-    `
+    report: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5h10l2 2v13H5v-15a.5.5 0 0 1 .5-.5Z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>`,
+    warning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 4.7 18h14.6L12 4.5Z" /><path d="M12 9v4" /><circle cx="12" cy="16.4" r="1" fill="currentColor" stroke="none" /></svg>`,
+    'trend-up': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15.5 10 10l3.5 3.5L19 8" /><path d="M15.2 8H19v3.8" /></svg>`,
+    'trend-down': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5 10 14l3.5-3.5L19 16" /><path d="M15.2 16H19v-3.8" /></svg>`,
+    hourglass: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5h10" /><path d="M7 19.5h10" /><path d="M8.5 6.5c0 3 1.8 4 3.5 5.5-1.7 1.5-3.5 2.5-3.5 5.5" /><path d="M15.5 6.5c0 3-1.8 4-3.5 5.5 1.7 1.5 3.5 2.5 3.5 5.5" /></svg>`,
+    users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="2.8" /><circle cx="16.5" cy="10" r="2.2" opacity="0.7" /><path d="M4.5 18.5c1.1-2.8 3.3-4.4 4.5-4.4s3.4 1.6 4.5 4.4" /><path d="M13.5 18.5c.8-1.8 2.3-2.9 3.4-2.9 1 0 2.2 1 2.9 2.9" /></svg>`,
+    check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 9.5 17 19 7.5" /></svg>`,
   }
-
   return iconMap[name] || iconMap.check
 }
 
+// ── Revenue chart ────────────────────────────────────────────────────────────
 const renderRevenueChart = async () => {
   const token = ++chartRenderToken
   await nextTick()
-
   if (token !== chartRenderToken) return
 
   const canvas = document.getElementById('revenueChart')
@@ -458,13 +338,17 @@ const renderRevenueChart = async () => {
     revenueChart.value = null
   }
 
+  const rows   = revenueChartRows.value
+  const labels = rows.map(r => r.display || r.label)
+  const values = rows.map(r => Number(r.revenue || 0))
+
   revenueChart.value = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: getChartLabels(),
+      labels,
       datasets: [{
         label: 'Doanh thu (VND)',
-        data: getChartValues(),
+        data: values,
         borderColor: '#1f4f96',
         backgroundColor: gradient,
         fill: true,
@@ -474,21 +358,16 @@ const renderRevenueChart = async () => {
         pointHoverRadius: 6,
         pointBorderWidth: 2,
         pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#1f4f96'
-      }]
+        pointBorderColor: '#1f4f96',
+      }],
     },
     options: {
       animation: false,
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false
-      },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: {
-          display: false
-        },
+        legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(17, 24, 39, 0.9)',
           borderColor: 'rgba(59, 130, 246, 0.35)',
@@ -496,23 +375,22 @@ const renderRevenueChart = async () => {
           displayColors: false,
           padding: 10,
           callbacks: {
-            title(items) {
-              return `Ngày ${items[0]?.label || ''}`
+            title: (items) => {
+              const row = rows[items[0]?.dataIndex]
+              return row ? `Ngày ${row.display || row.label}` : ''
             },
-            label(context) {
-              return `Doanh thu: ${formatCurrency(context.parsed?.y || 0)}`
-            }
-          }
-        }
+            label: (ctx) => `Doanh thu: ${formatCurrency(ctx.parsed?.y || 0)}`,
+            afterLabel: (ctx) => {
+              const row = rows[ctx.dataIndex]
+              return row ? `Đơn hàng: ${row.order_count}` : ''
+            },
+          },
+        },
       },
       scales: {
         y: {
           beginAtZero: true,
-          grid: {
-            color: 'rgba(148, 163, 184, 0.13)',
-            borderDash: [5, 5],
-            drawBorder: false
-          },
+          grid: { color: 'rgba(148, 163, 184, 0.13)', borderDash: [5, 5], drawBorder: false },
           ticks: {
             color: '#8094b2',
             callback: function(value) {
@@ -534,34 +412,12 @@ const renderRevenueChart = async () => {
   })
 }
 
-watch(
-  [
-    () => orderStore.orders.length,
-    () => productStore.products.length,
-    () => batchStore.batches.length,
-    () => customerStore.customers.length,
-    () => alertStore.alerts.length
-  ],
-  () => {
-    buildDashboardSummary()
-  },
-  { flush: 'post' }
-)
-
 onMounted(async () => {
-  try {
-    await Promise.all([
-      orderStore.fetchAdminOrders(),
-      productStore.fetchProducts({ per_page: 200 }),
-      batchStore.fetchBatches(),
-      customerStore.fetchCustomers(),
-      alertStore.fetchAlerts()
-    ])
-  } catch {
-    // giữ dữ liệu hiện tại nếu có lỗi fetch
-  }
-
-  buildDashboardSummary()
+  await Promise.all([
+    fetchOverview(),
+    fetchRevenue7Days(),
+    alertStore.fetchAlerts().catch(() => {}),
+  ])
   await renderRevenueChart()
 })
 
@@ -767,6 +623,10 @@ onBeforeUnmount(() => {
 
 .kpi-trend.positive {
   color: #059669;
+}
+
+.kpi-trend.negative {
+  color: #ef4444;
 }
 
 .kpi-trend.warning {

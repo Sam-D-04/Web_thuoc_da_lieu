@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Batch;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -206,6 +207,7 @@ class StatsController extends Controller
         $today      = $now->toDateString();
         $monthStart = $now->copy()->startOfMonth()->toDateString();
 
+        // ── Doanh thu ─────────────────────────────────────────────────────────────
         $todayRevenue = Order::where('order_status', '!=', 'cancelled')
             ->whereDate('created_at', $today)
             ->sum('final_amount');
@@ -214,8 +216,24 @@ class StatsController extends Controller
             ->whereDate('created_at', '>=', $monthStart)
             ->sum('final_amount');
 
+        // So sánh cùng kỳ tháng trước (số ngày đã qua trong tháng)
+        $dayOfMonth       = $now->day;
+        $prevMonthFrom    = $now->copy()->subMonth()->startOfMonth()->toDateTimeString();
+        $prevMonthTo      = $now->copy()->subMonth()->day($dayOfMonth)->endOfDay()->toDateTimeString();
+        $prevMonthRevenue = Order::where('order_status', '!=', 'cancelled')
+            ->whereBetween('created_at', [$prevMonthFrom, $prevMonthTo])
+            ->sum('final_amount');
+        $monthRevenueChange = $prevMonthRevenue > 0
+            ? round(((float)$monthRevenue - (float)$prevMonthRevenue) / (float)$prevMonthRevenue * 100, 1)
+            : null;
+
+        // ── Đơn hàng & sản phẩm ───────────────────────────────────────────────────
         $pendingOrders = Order::where('order_status', 'pending')->count();
         $totalProducts = Product::where('is_active', true)->count();
+
+        // ── Khách hàng ────────────────────────────────────────────────────────────
+        $totalCustomers  = User::where('role', 'customer')->count();
+        $activeCustomers = User::where('role', 'customer')->where('status', 'active')->count();
 
         // ── Tồn kho ──────────────────────────────────────────────────────────────
         $lowStockCount = Product::where('is_active', true)
@@ -226,25 +244,37 @@ class StatsController extends Controller
             ->whereRaw('stock_quantity > stock_warning * 3')
             ->count();
 
-        $expiringSoonCount = Batch::where('remaining_quantity', '>', 0)
-            ->where('expiry_date', '>', $today)
-            ->where('expiry_date', '<=', $now->copy()->addDays(30)->toDateString())
-            ->count();
-
         $inventoryValue = DB::table('products')
             ->where('is_active', true)
             ->sum(DB::raw('stock_quantity * price_listed'));
 
+        // ── Lô hàng (FEFO) ────────────────────────────────────────────────────────
+        $expiredBatchCount     = Batch::whereDate('expiry_date', '<', $today)->count();
+        $expiringSoonBatchCount = Batch::where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>', $today)
+            ->where('expiry_date', '<=', $now->copy()->addDays(30)->toDateString())
+            ->count();
+        $safeBatchCount = Batch::where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>', $now->copy()->addDays(30)->toDateString())
+            ->count();
+
         return response()->json([
-            'today_revenue'  => (float) $todayRevenue,
-            'month_revenue'  => (float) $monthRevenue,
-            'pending_orders' => (int)   $pendingOrders,
-            'total_products' => (int)   $totalProducts,
-            'inventory'      => [
-                'low_stock'     => (int)   $lowStockCount,
-                'high_stock'    => (int)   $highStockCount,
-                'expiring_soon' => (int)   $expiringSoonCount,
-                'total_value'   => (float) $inventoryValue,
+            'today_revenue'        => (float) $todayRevenue,
+            'month_revenue'        => (float) $monthRevenue,
+            'month_revenue_change' => $monthRevenueChange,
+            'pending_orders'       => (int)   $pendingOrders,
+            'total_products'       => (int)   $totalProducts,
+            'total_customers'      => (int)   $totalCustomers,
+            'active_customers'     => (int)   $activeCustomers,
+            'inventory'            => [
+                'low_stock'    => (int)   $lowStockCount,
+                'high_stock'   => (int)   $highStockCount,
+                'total_value'  => (float) $inventoryValue,
+            ],
+            'batch_counts'         => [
+                'expired'      => (int) $expiredBatchCount,
+                'expiring_soon' => (int) $expiringSoonBatchCount,
+                'safe'         => (int) $safeBatchCount,
             ],
         ]);
     }
